@@ -1,4 +1,4 @@
-# Configuring NAT64/DNS64 On a Ubuntu Server for Linking IPv6-only Clusters with IPv4-Only External Servers
+# Configuring NAT64/DNS64 On a CentOS 7 Server for Linking IPv6-only Clusters with IPv4-Only External Servers
 
 ## Background
 
@@ -19,28 +19,31 @@ https://www.jool.mx/en/run-nat64.html#jool
 https://www.jool.mx/en/modprobe-nat64.html
 https://www.jool.mx/en/modprobe-nat64.html#pool4
 
-#### Install build-essential, linux-headers, and dkms:
+#### Install 'Development Tools' install group
+(required for "build-essential")
 ```
-sudo apt-get install -y build-essential linux-headers-$(uname -r) dkms
-Install Kernel Modules:
+sudo yum groupinstall -y 'Development Tools'
+```
+
+#### Install Kernel Modules
 Reference: https://www.jool.mx/en/install-mod.html
-sudo -i
-git clone https://github.com/NICMx/Jool.git
-dkms install Jool
-exit
+```
+sudo yum install -y dkms
+cd
+git clone https://github.com/NICMx/jool.git
+sudo dkms install jool
 ```
 
 #### Install User Modules:
 Reference: https://www.jool.mx/en/install-usr.html
 ```
-sudo -i
-apt-get install -y gcc make pkg-config libnl-genl-3-dev autoconf
-cd Jool/usr
+sudo yum install -y pkgconfig
+sudo yum install -y libnl3-devel
+cd jool/usr
 ./autogen.sh
 ./configure
 make
 make install
-exit
 ```
 
 #### Enable IPv6 Forwarding on the Kubernetes Master, minions, and on the host
@@ -50,12 +53,11 @@ sysctl net.ipv6.conf.all.forwarding
 ```
  
 #### On master and minions, add static route for NAT64 subnet 64:ff9b::/64 via eth1 to the NAT64 server
-Add the following to /etc/sysconfig/network-scripts/route6-eth1, if not already present:
+Example: For CentOS 7, add the following to /etc/sysconfig/network-scripts/route6-eth1:
 
 ```
-ip -6 route add 64:ff9b::/96 via fd00::64 dev eth1
+64:ff9b::/96 via fd00::64 metric 1024
 ```
-
 
 ## Configuring Jool
 References:
