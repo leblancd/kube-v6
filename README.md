@@ -6,7 +6,7 @@ So you'd like to take Kubernetes IPv6 for a test drive, or perhaps do some Kuber
 
 There have been many recent changes that have been added or proposed to Kubernetes for supporting IPv6 are either not merged yet, or they were merged after the latest official release of Kubernetesi (1.8.0). In the meantime, we need a way of exercising these yet "in-flight" IPv6 changes on a Kubernetes cluster. This wiki offers you two ways to include these changes in a Kubernetes cluster instance:
 
- * Using "canned", or precompiled binaries and container images for Kubernetes components
+ * Using "canned" (precompiled/prebuilt) release  binaries and container images for Kubernetes components (e.g. https://github.com/leblancd/kubernetes/releases/tag/v1.9.0-alpha.0.ipv6.0)
  * Compiling your own Kubernetes binaries and container images.
 
 For instructional purposes, the steps below assume the topology shown in the following diagram, but certainly various topologies can be supported (e.g. using baremetal nodes or different IPv6 addressing schemes) with slight variations in the steps:
@@ -99,18 +99,6 @@ fd00:101::/64 via fd00::101 metric 1024
 fd00:1234::/64 via fd00::100 metric 1024
 ```
 
-## Set sysctl settings for forwarding and using iptables/ip6tables
-For example, on CentOS 7 hosts, add the following to /etc/sysctl.conf:
-```
-sudo -i
-cat << EOT >> /etc/sysctl.conf
-net.ipv6.conf.all.forwarding=1
-net.bridge.bridge-nf-call-ip6tables=1
-EOT
-sudo sysctl -p /etc/sysctl.conf
-exit
-```
-
 ## Configure and install NAT64 and DNS64 on the NAT64/DNS64 server
 For installing on a Ubuntu host, refer to the [NAT64-DNS64-UBUNTU-INSTALL.md](NAT64-DNS64-UBUNTU-INSTALL.md) file.
 
@@ -125,11 +113,12 @@ ip route delete default via 10.0.2.2 dev eth0
 ```
 Since DHCP reconfiguration happens periodically (IP lease expiry), you may also want to disable DHCP configuration on the VM's eth0.
 
-# Install Standard (Upstream) Kubernetes Packages
+# Install Standard (Upstream) Kubernetes Packages (as a Baseline)
 On the Kubernetes master and minion nodes, install docker, kubernetes, and kubernetes-CNI.
+Reference: [Installing kubeadm](https://kubernetes.io/docs/setup/independent/install-kubeadm/)
 
-#### For CentOS 7 / Fedora based hosts
-````
+#### Example: For CentOS 7 / Fedora based hosts
+```
 sudo -i
 cat <<EOF > /etc/yum.repos.d/kubernetes.repo
 [kubernetes]
@@ -152,4 +141,88 @@ exit
 ```
 
 The kubelet is now restarting every few seconds, as it waits in a crashloop for kubeadm to tell it what to do.
+
+# Set sysctl IPv6 Settings for Forwarding and Using ip6tables for Intra-Bridge
+For example, on CentOS 7 hosts, add the following to /etc/sysctl.conf:
+```
+sudo -i
+cat << EOT >> /etc/sysctl.conf
+net.ipv6.conf.all.forwarding=1
+net.bridge.bridge-nf-call-ip6tables=1
+EOT
+sudo sysctl -p /etc/sysctl.conf
+exit
+```
+
+# Modify kubelet Startup Config to Use IPv6 Service Address for kube-dns
+When the kubelet systemd service is started up, it needs to know what nameserver address that it will be configuring in the /etc/resolv.conf file of every pod that it starts up. Since kube-dns provides DNS service within the cluster, the nameserver address configured in pods needs to be the Kubernetes service address of kube-dns.
+
+By default, when kubeadm is installed, the kubelet service is configured for the default IPv4 service address of 10.96.0.10 via a --cluster-dns setting in the /etc/systemd/system/kubelet.service.d/10-kubeadm.conf file. But for a Kubernetes cluster running in IPv6-only mode, the kube-dns service address will be the :10 address in the Kubernetes service CIDR. For example, for the Kubernetes service CIDR shown in the example topoogy above, the kube-dns service address will be:
+```
+fd00:1234::10
+```
+
+## TODO: Modify the step below to use 10-extra-args.conf dropin file rather than 10-kubeadm.conf.
+
+To modify kubelet's kube-dns configuration, do the following on EVERY minion (and your master, if you plan on un-tainting it):
+```
+KUBE_DNS_SVC_IPV6=fd00:1234::10
+sudo sed -i "s/--cluster-dns=.* /--cluster-dns=$KUBE_DNS_SVC_IPV6 /" /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
+```
+
+# Create an IPv6 CNI Bridge Network Config File on Every Minion
+
+#### On kube-minion-1, create an IPv6-only CNI bridge network config file using fd00:101::/64:
+
+```
+sudo -i
+# Backup any existing CNI netork config files to home dir
+mv /etc/cni/net.d/* $HOME
+MY_POD_SUBNET=fd00:101
+cat <<EOT > 10-bridge-v6.conf
+{
+  "cniVersion": "0.3.0",
+  "name": "mynet",
+  "type": "bridge",
+  "bridge": "cbr0",
+  "isDefaultGateway": true,
+  "ipMasq": false,
+  "ipam": {
+    "type": "host-local",
+    "ranges": [
+      {
+        "subnet": "$MY_POD_SUBNET::/64",
+        "gateway": "$MY_POD_SUBNET::1"
+      }
+    ]
+  }
+}
+```
+
+#### On kube-minion-2, create an IPv6-only CNI bridge network config file using fd00:102::/64:
+
+```
+sudo -i
+# Backup any existing CNI netork config files to home dir
+mv /etc/cni/net.d/* $HOME
+MY_POD_SUBNET=fd00:102
+cat <<EOT > 10-bridge-v6.conf
+{
+  "cniVersion": "0.3.0",
+  "name": "mynet",
+  "type": "bridge",
+  "bridge": "cbr0",
+  "isDefaultGateway": true,
+  "ipMasq": false,
+  "ipam": {
+    "type": "host-local",
+    "ranges": [
+      {
+        "subnet": "$MY_POD_SUBNET::0/64",
+        "gateway": "$MY_POD_SUBNET::1"
+      }
+    ]
+  }
+}
+```
 
