@@ -25,14 +25,13 @@ can be instantiated using a couple of manual steps:
 #### Why run in IPv6-only mode rather than running in dual-stack mode?
 The first phase of implementation for IPv6 on Kubernetes will target support for IPv6-only clusters. The main reason for this is that Kubernetes currently only supports/recognizes a single IP address per pod (i.e. no multiple-IP support). So even though the CNI bridge plugin supports dual-stack (as well as support for multiple IPv6 addresses on each pod interface) operation on the pods, Kubernetes will currently only be aware of one IP address per pod.
 
-#### Why is the purpose of NAT64 and DNS64 in the IPv6 Kubernetes cluster topology diagram?
-There are many servers that exist outside of our Kubernetes cluster that still do not support IPv6 exchanges. One big example are the docker image registries that we typically use to download Kubernetes service container images and other docker images that are run inside user pods. In order to connect with these services from an IPv6 platform, NAT64 translation coupled with DNS64 are required to translate IPv6 packets from within the cluster to IPv4 packets outside the cluster,
-and vice versa.
+#### What is the purpose of NAT64 and DNS64 in the IPv6 Kubernetes cluster topology diagram?
+We need to be able to test IPv6-only Kubernetes cluster configurations. However, there are many external services (e.g. DockerHub) that only work with IPv4. In order to interoperate between our IPv6-only cluster and these external IPv4 services, we configure a node outside of the cluster to host a NAT64 server and a DNS64 server. The NAT64 server operates in dual-stack mode, and it serves as a stateful translator between the internal IPv6-only network and the external IPv4 Internet. The DNS64 server synthesizes AAAA records for any IPv4-only host/server outside of the cluster, using a special prefix of 64:ff9b::. Any packets that are forwarded to the NAT64 server with this special prefix are subjected to stateful address translation to an IPv4 address/port.
 
 #### Should I use global (GUA) or private (ULA) IPv6 addresses on the Kubernetes nodes?
 You can use GUA, ULA, or a combination of both for addresses on your Kubernetes nodes. Using GUA addresses (that are routed to your cluster) gives you the flexibility of connecting directly to Kubernetes services from outside the cluster (e.g. by defining Kubernetes services using nodePorts or externalIPs). On the other hand, the ULA addresses that you choose can be convenient and predictable, and that can greatly simplify the addition of static routes between nodes and pods.
 
-# Preparation Before Running kubeadm
+# Preparing the Nodes
 
 ## Set up node IP addresses
 For the example topology show above, the eth2 addresses would be configured via IPv6 SLAAC, and the eth1 addresses would be statically configured as follows:
@@ -116,4 +115,41 @@ exit
 For installing on a Ubuntu host, refer to the [NAT64-DNS64-UBUNTU-INSTALL.md](NAT64-DNS64-UBUNTU-INSTALL.md) file.
 
 For installing on a CentOS 7 host, refer to the [NAT64-DNS64-CENTOS-INSTALL.md](NAT64-DNS64-CENTOS-INSTALL.md) file.
+
+## If Using VirtualBox VMs as Kubernetes Nodes: Delete the Default IPv4 Route on All Kubernetes Nodes
+VirtualBox typically sets up a VM's eth0 interface as an IPv4 NAT port to the external world, and configures the interface using DHCP. The presence of an IPv4 address (typically 10.0.2.15) on a VM's eth0 in an otherwise IPv6-only Kubernetes node won't interfere with IPv6-only operation of the cluster. However, another part of the DHCP configuration is an IPv4 default route. This IPv4 default route can interfere with control channel communication in an IPv6-only cluster because Kubernetes favors any IPv4 address that is on a interface that is associated with an IPv4 default route over any IPv6 addresses when choosing a node IP for that node. The node IP is what is used for inter-node control plane communication, so this needs to be an IPv6 address for IPv6-only operation.
+
+So if you are using VirtualBox VMs as Kubernetes nodes, you should delete the default IPv4 route, e.g.:
+```
+ip route delete default via 10.0.2.2 dev eth0
+```
+Since DHCP reconfiguration happens periodically (IP lease expiry), you may also want to disable DHCP configuration on the VM's eth0.
+
+# Install Standard (Upstream) Kubernetes Packages
+On the Kubernetes master and minion nodes, install docker, kubernetes, and kubernetes-CNI.
+
+#### For CentOS 7 / Fedora based hosts
+````
+sudo -i
+cat <<EOF > /etc/yum.repos.d/kubernetes.repo
+[kubernetes]
+name=Kubernetes
+baseurl=http://yum.kubernetes.io/repos/kubernetes-el7-x86_64
+enabled=1
+gpgcheck=1
+repo_gpgcheck=1
+gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg
+       https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+EOF
+exit
+
+sudo -i
+setenforce 0
+yum install -y docker kubelet kubeadm kubectl kubernetes-cni
+systemctl enable docker && systemctl start docker
+systemctl enable kubelet && systemctl start kubelet
+exit
+```
+
+The kubelet is now restarting every few seconds, as it waits in a crashloop for kubeadm to tell it what to do.
 
