@@ -113,7 +113,19 @@ ip route delete default via 10.0.2.2 dev eth0
 ```
 Since DHCP reconfiguration happens periodically (IP lease expiry), you may also want to disable DHCP configuration on the VM's eth0.
 
-## Install Standard Kubernetes Packages (as a Baseline)
+## Set sysctl IPv6 Settings for Forwarding and Using ip6tables for Intra-Bridge on Kubernetes Minions
+For example, on CentOS 7 hosts, add the following to /etc/sysctl.conf:
+```
+sudo -i
+cat << EOT >> /etc/sysctl.conf
+net.ipv6.conf.all.forwarding=1
+net.bridge.bridge-nf-call-ip6tables=1
+EOT
+sudo sysctl -p /etc/sysctl.conf
+exit
+```
+
+## Install Standard Kubernetes Packages (as a Baseline) on All Kubernetes Nodes
 On the Kubernetes master and minion nodes, install docker, kubernetes, and kubernetes-cni.
 Reference: [Installing kubeadm](https://kubernetes.io/docs/setup/independent/install-kubeadm/)
 
@@ -142,19 +154,7 @@ exit
 
 The kubelet is now restarting every few seconds, as it waits in a crashloop for kubeadm to tell it what to do.
 
-## Set sysctl IPv6 Settings for Forwarding and Using ip6tables for Intra-Bridge
-For example, on CentOS 7 hosts, add the following to /etc/sysctl.conf:
-```
-sudo -i
-cat << EOT >> /etc/sysctl.conf
-net.ipv6.conf.all.forwarding=1
-net.bridge.bridge-nf-call-ip6tables=1
-EOT
-sudo sysctl -p /etc/sysctl.conf
-exit
-```
-
-## Modify kubelet Startup Config to Use IPv6 Service Address for kube-dns
+## Modify kubelet Startup Config to Use IPv6 Service Address for kube-dns on Kubernetes Minions
 When the kubelet systemd service is started up, it needs to know what nameserver address that it will be configuring in the /etc/resolv.conf file of every pod that it starts up. Since kube-dns provides DNS service within the cluster, the nameserver address configured in pods needs to be the Kubernetes service address of kube-dns.
 
 By default, when kubeadm is installed, the kubelet service is configured for the default IPv4 service address of 10.96.0.10 via a --cluster-dns setting in the /etc/systemd/system/kubelet.service.d/10-kubeadm.conf file. But for a Kubernetes cluster running in IPv6-only mode, the kube-dns service address will be the :10 address in the Kubernetes service CIDR. For example, for the Kubernetes service CIDR shown in the example topoogy above, the kube-dns service address will be:
@@ -170,7 +170,7 @@ KUBE_DNS_SVC_IPV6=fd00:1234::10
 sudo sed -i "s/--cluster-dns=.* /--cluster-dns=$KUBE_DNS_SVC_IPV6 /" /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
 ```
 
-# Create an IPv6 CNI Bridge Network Config File on Every Minion
+## Create an IPv6 CNI Bridge Network Config File on Every Minion
 
 #### On kube-minion-1, create an IPv6-only CNI bridge network config file using fd00:101::/64:
 
