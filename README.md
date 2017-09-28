@@ -44,7 +44,7 @@ For the example topology show above, the eth2 addresses would be configured via 
    Kube Minion 1   fd00::102
 ```
 
-## (For convenience) Configure /etc/hosts on each node with the new addresses
+## Configure /etc/hosts on each node with the new addresses (for convenience)
 Here's an example /etc/hosts file:
 ```
 127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
@@ -113,8 +113,13 @@ ip route delete default via 10.0.2.2 dev eth0
 ```
 Since DHCP reconfiguration happens periodically (IP lease expiry), you may also want to disable DHCP configuration on the VM's eth0.
 
-## Set sysctl IPv6 Settings for Forwarding and Using ip6tables for Intra-Bridge on Kubernetes Minions
-For example, on CentOS 7 hosts, add the following to /etc/sysctl.conf:
+## Set sysctl IPv6 settings for forwarding and using ip6tables for intra-bridge
+Set the following sysctl settings on the minions:
+```
+net.ipv6.conf.all.forwarding=1
+net.bridge.bridge-nf-call-ip6tables=1
+```
+For example, on CentOS 7 hosts:
 ```
 sudo -i
 cat << EOT >> /etc/sysctl.conf
@@ -125,7 +130,7 @@ sudo sysctl -p /etc/sysctl.conf
 exit
 ```
 
-## Install Standard Kubernetes Packages (as a Baseline) on All Kubernetes Nodes
+## Install standard Kubernetes packages (as a baseline)
 On the Kubernetes master and minion nodes, install docker, kubernetes, and kubernetes-cni.
 Reference: [Installing kubeadm](https://kubernetes.io/docs/setup/independent/install-kubeadm/)
 
@@ -154,7 +159,7 @@ exit
 
 The kubelet is now restarting every few seconds, as it waits in a crashloop for kubeadm to tell it what to do.
 
-## Modify kubelet Startup Config to Use IPv6 Service Address for kube-dns on Kubernetes Minions
+## Configure the kube-dns Kubernetes service address in kubelet startup config
 When the kubelet systemd service is started up, it needs to know what nameserver address that it will be configuring in the /etc/resolv.conf file of every pod that it starts up. Since kube-dns provides DNS service within the cluster, the nameserver address configured in pods needs to be the Kubernetes service address of kube-dns.
 
 By default, when kubeadm is installed, the kubelet service is configured for the default IPv4 service address of 10.96.0.10 via a --cluster-dns setting in the /etc/systemd/system/kubelet.service.d/10-kubeadm.conf file. But for a Kubernetes cluster running in IPv6-only mode, the kube-dns service address will be the :10 address in the Kubernetes service CIDR. For example, for the Kubernetes service CIDR shown in the example topoogy above, the kube-dns service address will be:
@@ -164,15 +169,15 @@ fd00:1234::10
 
 #### TODO: Modify the step below to use 10-extra-args.conf dropin file rather than 10-kubeadm.conf.
 
-To modify kubelet's kube-dns configuration, do the following on EVERY minion (and your master, if you plan on un-tainting it):
+To modify kubelet's kube-dns configuration, do the following on all minions (and your master, if you plan on un-tainting it):
 ```
 KUBE_DNS_SVC_IPV6=fd00:1234::10
 sudo sed -i "s/--cluster-dns=.* /--cluster-dns=$KUBE_DNS_SVC_IPV6 /" /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
 ```
 
-## Create an IPv6 CNI Bridge Network Config File on Every Minion
+## Create an IPv6-only CNI bridge network config file on all minions
 
-#### On kube-minion-1, create an IPv6-only CNI bridge network config file using fd00:101::/64:
+#### On kube-minion-1, create a CNI network plugin using pod subnet fd00:101::/64:
 
 ```
 sudo -i
@@ -190,10 +195,12 @@ cat <<EOT > 10-bridge-v6.conf
   "ipam": {
     "type": "host-local",
     "ranges": [
-      {
-        "subnet": "$MY_POD_SUBNET::/64",
-        "gateway": "$MY_POD_SUBNET::1"
-      }
+      [
+        {
+          "subnet": "$MY_POD_SUBNET::/64",
+          "gateway": "$MY_POD_SUBNET::1"
+        }
+      ]
     ]
   }
 }
@@ -201,7 +208,7 @@ EOT
 exit
 ```
 
-#### On kube-minion-2, create an IPv6-only CNI bridge network config file using fd00:102::/64:
+#### On kube-minion-2, create a CNI network plugin using pod subnet fd00:102::/64:
 
 ```
 sudo -i
@@ -219,10 +226,12 @@ cat <<EOT > 10-bridge-v6.conf
   "ipam": {
     "type": "host-local",
     "ranges": [
-      {
-        "subnet": "$MY_POD_SUBNET::/64",
-        "gateway": "$MY_POD_SUBNET::1"
-      }
+      [
+        {
+          "subnet": "$MY_POD_SUBNET::/64",
+          "gateway": "$MY_POD_SUBNET::1"
+        }
+      ]
     ]
   }
 }
@@ -230,16 +239,126 @@ EOT
 exit
 ```
 
-## Download Version 0.6.0 of CNI Plugins
-Run the following to download version 0.6.0 of the CNI plugins:
+## Download version 0.6.0 of CNI Plugins on every node
+Run the following on every node to download version 0.6.0 of the CNI plugins:
 ```
+ARCHIVE=cni-plugins-amd64-v0.6.0.tgz
 mkdir -p /opt/cni/bin
 cd /opt/cni/bin
 for i in `ls`; do sudo cp --backup=t $i{,.bak}; done
-ARCHIVE=cni-plugins-amd64-v0.6.0.tgz
 sudo curl -SLO https://github.com/containernetworking/plugins/releases/download/v0.6.0/$ARCHIVE
 if sudo tar -xzvf $ARCHIVE; then
     sudo rm $ARCHIVE
 fi
 ```
+
+# Running Pre-Built (Release) IPv6-enabled Binaries and Container Images
+There are some recent IPv6-related changes that have been proposed to Kubernetes that have either not been merged, or they were merged before the latest tagged release. One way of incorporating these changes while instantiating a Kubernetes IPv6 cluster is to use pre-built, IPv6-enabled images from a Kubernetes IPv6 release. In this way, you can avoid having to cherry-pick the necessary IPv6 changes, and then building Kubernetes binaries and container images.
+
+For an example Kubernetes IPv6 release, take a look at [Kubernetes IPv6 Version v1.9.0-alpha.0.ipv6.0](https://github.com/leblancd/kubernetes/releases/tag/v1.9.0-alpha.0.ipv6.0).
+
+## Download IPv6-enabled Kubernetes binaries (kubeadm, kubectl, kubelet)
+On all Kubernetes nodes, run the following to download IPv6-enabled Kubernetes binaries:
+```
+RELEASE=v1.9.0-alpha.0.ipv6.0
+cd /bin
+for i in kubeadm kubectl kubelet; do
+    sudo cp --backup=t $i{,.bak}
+    sudo curl -SLO https://github.com/leblancd/kubernetes/releases/download/$RELEASE/$i
+    chmod 755 $i
+done
+```
+
+## Create IPv6-enabled kubeadm config file on master node
+On the master node, create a kubeadm config file as follows:
+```
+cat << EOT > kubeadm_v6.cfg
+apiVersion: kubeadm.k8s.io/v1alpha1
+kind: MasterConfiguration
+api:
+  advertiseAddress: fd00::100
+kubeProxy:
+  bindAddress: "::"
+etcd:
+  image: diverdane/etcd-amd64:3.0.17
+networking:
+  serviceSubnet: fd00:1234::/110
+imageRepository: diverdane
+kubernetesVersion: v1.9.0-alpha.0.ipv6.0
+tokenTTL: 0s
+nodeName: kube-master
+EOT
+```
+
+## Run kubeadm init on master node
+On the master node, run:
+```
+sudo -i
+kubeadm init --config=kubeadm_v6.cfg
+```
+When this command completes (it may take a few minutes), you will see something like the following in the command output:
+```
+To start using your cluster, you need to run (as a regular user):
+
+  mkdir -p $HOME/.kube
+  sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+  sudo chown $(id -u):$(id -g) $HOME/.kube/config
+```
+Run these commands as shown. You can run these as either root or as a regular user.
+
+You will also see something like the following in the 'kubeadm init ...' command output:
+```
+You can now join any number of machines by running the following on each node
+as root:
+
+  kubeadm join --token <token-redacted> [fd00::100]:6443 --discovery-token-ca-cert-hash sha256:<long-hash-redacted>
+```
+Take note of this command, as you will need it for the next step.
+
+## Run kubeadm join on all minions
+To join each of your minions to the cluster, run the 'kubeadm join ...' command that you saw in the output of 'kubeadm init ...' (from the previous step) on each minion. This command should complete almost immediately, and last line of output should show:
+```
+```
+
+## Run 'kubectl get nodes' on the master
+Run 'kubeadm get nodes' on the master. You should see something like the following:
+```
+[root@kube-master ~]# kubectl get nodes
+NAME            STATUS     ROLES     AGE       VERSION
+kube-master     NotReady   master    10m       v1.9.0-alpha.0.705+8e957e8443c820-dirty
+kube-minion-1   Ready      <none>    42s       v1.9.0-alpha.0.705+8e957e8443c820-dirty
+kube-minion-2   Ready      <none>    35s       v1.9.0-alpha.0.705+8e957e8443c820-dirty
+[root@kube-master ~]# 
+```
+Note: If for some reason you don't see the minions showing up in the nodes list, try restarting the kubelet service on the effected node, e.g.:
+```
+systemctl restart kubelet
+```
+and rerun 'kubectl get nodes' on the master.
+
+
+## Run 'kubectl get pods ...' on the master
+Run the following to check that all kubernetes system pods are alive:
+```
+[root@kube-master ~]# kubectl get pods -o wide --all-namespaces
+NAMESPACE     NAME                                  READY     STATUS    RESTARTS   AGE       IP                                       NODE
+kube-system   etcd-kube-master                      1/1       Running   0          36s       2001:420:2c50:2021:9071:72ff:febc:2106   kube-master
+kube-system   kube-apiserver-kube-master            1/1       Running   0          36s       2001:420:2c50:2021:9071:72ff:febc:2106   kube-master
+kube-system   kube-controller-manager-kube-master   1/1       Running   0          35s       2001:420:2c50:2021:9071:72ff:febc:2106   kube-master
+kube-system   kube-dns-5b8ff6bff8-rlfp2             3/3       Running   0          5m        fd00:102::2                              kube-minion-2
+kube-system   kube-proxy-prd5s                      1/1       Running   0          5m        2001:420:2c50:2021:9071:72ff:febc:2106   kube-master
+kube-system   kube-proxy-tqfcf                      1/1       Running   0          38s       2001:420:2c50:2021:a00:27ff:fecb:54ac    kube-minion-2
+kube-system   kube-proxy-xsqcx                      1/1       Running   0          41s       2001:420:2c50:2021:a00:27ff:fe5a:112     kube-minion-1
+kube-system   kube-scheduler-kube-master            1/1       Running   0          35s       2001:420:2c50:2021:9071:72ff:febc:2106   kube-master
+[root@kube-master ~]# 
+```
+
+## Additional checking of the cluster
+T.B.D.
+
+## Resetting and Re-Running kubeadm init/join
+T.B.D.
+
+# Building and Downloading Your own Custom IPv6 Kubernetes Binaries/Images
+T.B.D.
 
