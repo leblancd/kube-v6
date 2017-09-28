@@ -104,14 +104,8 @@ For installing on a Ubuntu host, refer to the [NAT64-DNS64-UBUNTU-INSTALL.md](NA
 
 For installing on a CentOS 7 host, refer to the [NAT64-DNS64-CENTOS-INSTALL.md](NAT64-DNS64-CENTOS-INSTALL.md) file.
 
-## If Using VirtualBox VMs as Kubernetes Nodes: Delete the Default IPv4 Route on All Kubernetes Nodes
-VirtualBox typically sets up a VM's eth0 interface as an IPv4 NAT port to the external world, and configures the interface using DHCP. The presence of an IPv4 address (typically 10.0.2.15) on a VM's eth0 in an otherwise IPv6-only Kubernetes node won't interfere with IPv6-only operation of the cluster. However, another part of the DHCP configuration is an IPv4 default route. This IPv4 default route can interfere with control channel communication in an IPv6-only cluster because Kubernetes favors any IPv4 address that is on a interface that is associated with an IPv4 default route over any IPv6 addresses when choosing a node IP for that node. The node IP is what is used for inter-node control plane communication, so this needs to be an IPv6 address for IPv6-only operation.
-
-So if you are using VirtualBox VMs as Kubernetes nodes, you should delete the default IPv4 route, e.g.:
-```
-ip route delete default via 10.0.2.2 dev eth0
-```
-Since DHCP reconfiguration happens periodically (IP lease expiry), you may also want to disable DHCP configuration on the VM's eth0.
+## If Using VirtualBox VMs as Kubernetes Nodes
+If you are using VirtualBox VMs as Kubernetes nodes, please see the VirtualBox-specific considerations listed in [VIRTUALBOX_CONSIDERATIONS.md](VIRTUALBOX_CONSIDERATIONS.md).
 
 ## Set sysctl IPv6 settings for forwarding and using ip6tables for intra-bridge
 Set the following sysctl settings on the minions:
@@ -314,8 +308,14 @@ as root:
 Take note of this command, as you will need it for the next step.
 
 ## Run kubeadm join on all minions
-To join each of your minions to the cluster, run the 'kubeadm join ...' command that you saw in the output of 'kubeadm init ...' (from the previous step) on each minion. This command should complete almost immediately, and last line of output should show:
+To join each of your minions to the cluster, run the 'kubeadm join ...' command that you saw in the output of 'kubeadm init ...' (from the previous step) on each minion. This command should complete almost immediately, and you should see the following at the end of the command output:
 ```
+Node join complete:
+* Certificate signing request sent to master and response
+  received.
+* Kubelet informed of new secure connection details.
+
+Run 'kubectl get nodes' on the master to see this machine join.
 ```
 
 ## Run 'kubectl get nodes' on the master
@@ -339,15 +339,15 @@ and rerun 'kubectl get nodes' on the master.
 Run the following to check that all kubernetes system pods are alive:
 ```
 [root@kube-master ~]# kubectl get pods -o wide --all-namespaces
-NAMESPACE     NAME                                  READY     STATUS    RESTARTS   AGE       IP                                       NODE
-kube-system   etcd-kube-master                      1/1       Running   0          36s       2001:420:2c50:2021:9071:72ff:febc:2106   kube-master
-kube-system   kube-apiserver-kube-master            1/1       Running   0          36s       2001:420:2c50:2021:9071:72ff:febc:2106   kube-master
-kube-system   kube-controller-manager-kube-master   1/1       Running   0          35s       2001:420:2c50:2021:9071:72ff:febc:2106   kube-master
-kube-system   kube-dns-5b8ff6bff8-rlfp2             3/3       Running   0          5m        fd00:102::2                              kube-minion-2
-kube-system   kube-proxy-prd5s                      1/1       Running   0          5m        2001:420:2c50:2021:9071:72ff:febc:2106   kube-master
-kube-system   kube-proxy-tqfcf                      1/1       Running   0          38s       2001:420:2c50:2021:a00:27ff:fecb:54ac    kube-minion-2
-kube-system   kube-proxy-xsqcx                      1/1       Running   0          41s       2001:420:2c50:2021:a00:27ff:fe5a:112     kube-minion-1
-kube-system   kube-scheduler-kube-master            1/1       Running   0          35s       2001:420:2c50:2021:9071:72ff:febc:2106   kube-master
+NAMESPACE     NAME                                  READY     STATUS    RESTARTS   AGE       IP                    NODE
+kube-system   etcd-kube-master                      1/1       Running   0          36s       2001:<**REDACTED**>   kube-master
+kube-system   kube-apiserver-kube-master            1/1       Running   0          36s       2001:<**REDACTED**>   kube-master
+kube-system   kube-controller-manager-kube-master   1/1       Running   0          35s       2001:<**REDACTED**>   kube-master
+kube-system   kube-dns-5b8ff6bff8-rlfp2             3/3       Running   0          5m        fd00:102::2           kube-minion-2
+kube-system   kube-proxy-prd5s                      1/1       Running   0          5m        2001:<**REDACTED**>   kube-master
+kube-system   kube-proxy-tqfcf                      1/1       Running   0          38s       2001:<**REDACTED**>   kube-minion-2
+kube-system   kube-proxy-xsqcx                      1/1       Running   0          41s       2001:<**REDACTED**>   kube-minion-1
+kube-system   kube-scheduler-kube-master            1/1       Running   0          35s       2001:<**REDACTED**>   kube-master
 [root@kube-master ~]# 
 ```
 
@@ -355,7 +355,29 @@ kube-system   kube-scheduler-kube-master            1/1       Running   0       
 T.B.D.
 
 ## Resetting and Re-Running kubeadm init/join
-T.B.D.
+If you ever need to restart and re-run kubeadm init/join, follow these steps.
+
+#### Reset the minions
+On each minion, run the following as sudo:
+```
+# Make backup of CNI config
+mkdir -p $HOME/temp
+cp /etc/cni/net.d/10-bridge-v6.conf $HOME/temp
+# Run kubeadm reset
+kubeadm reset
+# Clean up an allocated IPs
+rm -f /var/lib/cni/networks/mynet/*
+# Restore CNI config
+cp $HOME/temp/10-bridge-v6.conf /etc/cni/net.d
+```
+
+#### Reset the master
+There's no CNI config to save/restore on the master, so run:
+```
+kubeadm reset
+```
+
+#### Re-run 'kubeadm init ...' and 'kubeadm join ...' as sudo
 
 # Building and Downloading Your own Custom IPv6 Kubernetes Binaries/Images
 T.B.D.
