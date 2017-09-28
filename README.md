@@ -16,11 +16,11 @@ For instructional purposes, the steps below assume the topology shown in the fol
 # FAQs
 
 #### Why Use the CNI Bridge Plugin? Isn't it intended for single-node clusters?
-The Container Networking Interface (CNI) [Release v0.6.0](https://github.com/containernetworking/plugins/releases/tag/v0.6.0) included support for IPv6 operation for the Bridge plugin and Host-local IPAM plugin. It was therefore considered a good reference plugin with which to test IPv6 changes that were being made to Kubernetes. Although the bridge plugin is intended for single-node operation (the bridge on each minion node is isolated), a multi-node cluster using the bridge plugin
+The Container Networking Interface (CNI) [Release v0.6.0](https://github.com/containernetworking/plugins/releases/tag/v0.6.0) included support for IPv6 operation for the Bridge plugin and Host-local IPAM plugin. It was therefore considered a good reference plugin with which to test IPv6 changes that were being made to Kubernetes. Although the bridge plugin is intended for single-node operation (the bridge on each node is isolated), a multi-node cluster using the bridge plugin
 can be instantiated using a couple of manual steps:
 
- * Provide each node with its unique pod address space (e.g. each node gets a unique /64 subnet for pod addresses).
- * Add static routes on each minion to other minions' pod subnets using the target minion's node address as a next hop.
+ * Provide each node with a unique pod address space (e.g. each node gets a unique /64 subnet for pod addresses).
+ * Add static routes on each node to other nodes' pod subnets using the target node's host address as a next hop.
 
 #### Why run in IPv6-only mode rather than running in dual-stack mode?
 The first phase of implementation for IPv6 on Kubernetes will target support for IPv6-only clusters. The main reason for this is that Kubernetes currently only supports/recognizes a single IP address per pod (i.e. no multiple-IP support). So even though the CNI bridge plugin supports dual-stack (as well as support for multiple IPv6 addresses on each pod interface) operation on the pods, Kubernetes will currently only be aware of one IP address per pod.
@@ -40,8 +40,8 @@ For the example topology show above, the eth2 addresses would be configured via 
    -------------   ----------
    NAT64/DNS64     fd00::64
    Kube Master     fd00::100
-   Kube Minion 1   fd00::101
-   Kube Minion 1   fd00::102
+   Kube Node 1     fd00::101
+   Kube Node 1     fd00::102
 ```
 
 ## Configure /etc/hosts on each node with the new addresses (for convenience)
@@ -51,8 +51,8 @@ Here's an example /etc/hosts file:
 ::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
 fd00::64 kube-nat64-dns64
 fd00::100 kube-master
-fd00::101 kube-minion-1
-fd00::102 kube-minion-2
+fd00::101 kube-node-1
+fd00::102 kube-node-2
 ```
 
 ## Add static routes between nodes, pods, and Kubernetes services
@@ -61,10 +61,10 @@ In the list of static routes below, the subnets/addresses used are as follows:
    Subnet/Address          Description
    --------------    ---------------------------
    64:ff9b::/96      Prefix used inside the cluster for packets requiring NAT64 translation
-   fd00::101         Kube Minion 1
-   fd00::102         Kube Minion 2
-   fd00:101::/64     Kube Minion 1's pod subnet
-   fd00:102::/64     Kube Minion 2's pod subnet
+   fd00::101         Kube Node 1
+   fd00::102         Kube Node 2
+   fd00:101::/64     Kube Node 1's pod subnet
+   fd00:102::/64     Kube Node 2's pod subnet
    fd00:1234::/64    Cluster's Service subnet
 ```
 
@@ -83,7 +83,7 @@ fd00:101::/64 via fd00::101 metric 1024
 fd00:102::/64 via fd00::102 metric 1024
 ```
 
-#### Static Routes on Kube Minion 1
+#### Static Routes on Kube Node 1
 Example: CentOS 7, entries in /etc/sysconfig/network-scripts/route6-eth1:
 ```
 64:ff9b::/64 via fd00::64 metric 1024
@@ -91,7 +91,7 @@ fd00:102::/64 via fd00::102 metric 1024
 fd00:1234::/64 via fd00::100 metric 1024
 ```
 
-#### Static Routes on Kube Minion 2
+#### Static Routes on Kube Node 2
 Example: CentOS 7, entries in /etc/sysconfig/network-scripts/route6-eth1:
 ```
 64:ff9b::/64 via fd00::64 metric 1024
@@ -102,13 +102,13 @@ fd00:1234::/64 via fd00::100 metric 1024
 ## Configure and install NAT64 and DNS64 on the NAT64/DNS64 server
 For installing on a Ubuntu host, refer to the [NAT64-DNS64-UBUNTU-INSTALL.md](NAT64-DNS64-UBUNTU-INSTALL.md) file.
 
-For installing on a CentOS 7 host, refer to the [NAT64-DNS64-CENTOS-INSTALL.md](NAT64-DNS64-CENTOS-INSTALL.md) file.
+For installing on a CentOS 7 host, refer to the [NAT64-DNS64-CENTOS7-INSTALL.md](NAT64-DNS64-CENTOS7-INSTALL.md) file.
 
 ## If Using VirtualBox VMs as Kubernetes Nodes
 If you are using VirtualBox VMs as Kubernetes nodes, please see the VirtualBox-specific considerations listed in [VIRTUALBOX_CONSIDERATIONS.md](VIRTUALBOX_CONSIDERATIONS.md).
 
 ## Set sysctl IPv6 settings for forwarding and using ip6tables for intra-bridge
-Set the following sysctl settings on the minions:
+Set the following sysctl settings on the nodes:
 ```
 net.ipv6.conf.all.forwarding=1
 net.bridge.bridge-nf-call-ip6tables=1
@@ -125,10 +125,10 @@ exit
 ```
 
 ## Install standard Kubernetes packages (as a baseline)
-On the Kubernetes master and minion nodes, install docker, kubernetes, and kubernetes-cni.
+On the Kubernetes master and nodes, install docker, kubernetes, and kubernetes-cni.
 Reference: [Installing kubeadm](https://kubernetes.io/docs/setup/independent/install-kubeadm/)
 
-#### Example: For CentOS 7 / Fedora based hosts
+#### Example: For CentOS 7 based hosts
 ```
 sudo -i
 cat <<EOF > /etc/yum.repos.d/kubernetes.repo
@@ -163,15 +163,15 @@ fd00:1234::10
 
 #### TODO: Modify the step below to use 10-extra-args.conf dropin file rather than 10-kubeadm.conf.
 
-To modify kubelet's kube-dns configuration, do the following on all minions (and your master, if you plan on un-tainting it):
+To modify kubelet's kube-dns configuration, do the following on all nodes (and your master, if you plan on un-tainting it):
 ```
 KUBE_DNS_SVC_IPV6=fd00:1234::10
 sudo sed -i "s/--cluster-dns=.* /--cluster-dns=$KUBE_DNS_SVC_IPV6 /" /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
 ```
 
-## Create an IPv6-only CNI bridge network config file on all minions
+## Create an IPv6-only CNI bridge network config file on all nodes
 
-#### On kube-minion-1, create a CNI network plugin using pod subnet fd00:101::/64:
+#### On kube-node-1, create a CNI network plugin using pod subnet fd00:101::/64:
 
 ```
 sudo -i
@@ -201,7 +201,7 @@ EOT
 exit
 ```
 
-#### On kube-minion-2, create a CNI network plugin using pod subnet fd00:102::/64:
+#### On kube-node-2, create a CNI network plugin using pod subnet fd00:102::/64:
 
 ```
 sudo -i
@@ -303,12 +303,12 @@ You will also see something like the following in the 'kubeadm init ...' command
 You can now join any number of machines by running the following on each node
 as root:
 
-  kubeadm join --token <token-redacted> [fd00::100]:6443 --discovery-token-ca-cert-hash sha256:<long-hash-redacted>
+  kubeadm join --token <TOKEN-REDACTED> [fd00::100]:6443 --discovery-token-ca-cert-hash sha256:<HASH-REDACTED>
 ```
 Take note of this command, as you will need it for the next step.
 
-## Run kubeadm join on all minions
-To join each of your minions to the cluster, run the 'kubeadm join ...' command that you saw in the output of 'kubeadm init ...' (from the previous step) on each minion. This command should complete almost immediately, and you should see the following at the end of the command output:
+## Run kubeadm join on all nodes
+To join each of your nodes to the cluster, run the 'kubeadm join ...' command that you saw in the output of 'kubeadm init ...' (from the previous step) on each node. This command should complete almost immediately, and you should see the following at the end of the command output:
 ```
 Node join complete:
 * Certificate signing request sent to master and response
@@ -322,13 +322,13 @@ Run 'kubectl get nodes' on the master to see this machine join.
 Run 'kubeadm get nodes' on the master. You should see something like the following:
 ```
 [root@kube-master ~]# kubectl get nodes
-NAME            STATUS     ROLES     AGE       VERSION
-kube-master     NotReady   master    10m       v1.9.0-alpha.0.705+8e957e8443c820-dirty
-kube-minion-1   Ready      <none>    42s       v1.9.0-alpha.0.705+8e957e8443c820-dirty
-kube-minion-2   Ready      <none>    35s       v1.9.0-alpha.0.705+8e957e8443c820-dirty
+NAME          STATUS     ROLES     AGE       VERSION
+kube-master   NotReady   master    10m       v1.9.0-alpha.0.705+8e957e8443c820-dirty
+kube-node-1   Ready      <none>    42s       v1.9.0-alpha.0.705+8e957e8443c820-dirty
+kube-node-2   Ready      <none>    35s       v1.9.0-alpha.0.705+8e957e8443c820-dirty
 [root@kube-master ~]# 
 ```
-Note: If for some reason you don't see the minions showing up in the nodes list, try restarting the kubelet service on the effected node, e.g.:
+Note: If for some reason you don't see the nodes showing up in the nodes list, try restarting the kubelet service on the effected node, e.g.:
 ```
 systemctl restart kubelet
 ```
@@ -343,10 +343,10 @@ NAMESPACE     NAME                                  READY     STATUS    RESTARTS
 kube-system   etcd-kube-master                      1/1       Running   0          36s       2001:<**REDACTED**>   kube-master
 kube-system   kube-apiserver-kube-master            1/1       Running   0          36s       2001:<**REDACTED**>   kube-master
 kube-system   kube-controller-manager-kube-master   1/1       Running   0          35s       2001:<**REDACTED**>   kube-master
-kube-system   kube-dns-5b8ff6bff8-rlfp2             3/3       Running   0          5m        fd00:102::2           kube-minion-2
+kube-system   kube-dns-5b8ff6bff8-rlfp2             3/3       Running   0          5m        fd00:102::2           kube-node-2
 kube-system   kube-proxy-prd5s                      1/1       Running   0          5m        2001:<**REDACTED**>   kube-master
-kube-system   kube-proxy-tqfcf                      1/1       Running   0          38s       2001:<**REDACTED**>   kube-minion-2
-kube-system   kube-proxy-xsqcx                      1/1       Running   0          41s       2001:<**REDACTED**>   kube-minion-1
+kube-system   kube-proxy-tqfcf                      1/1       Running   0          38s       2001:<**REDACTED**>   kube-node-2
+kube-system   kube-proxy-xsqcx                      1/1       Running   0          41s       2001:<**REDACTED**>   kube-node-1
 kube-system   kube-scheduler-kube-master            1/1       Running   0          35s       2001:<**REDACTED**>   kube-master
 [root@kube-master ~]# 
 ```
@@ -357,8 +357,8 @@ T.B.D.
 ## Resetting and Re-Running kubeadm init/join
 If you ever need to restart and re-run kubeadm init/join, follow these steps.
 
-#### Reset the minions
-On each minion, run the following as sudo:
+#### Reset the nodes
+On each node, run the following as sudo:
 ```
 # Make backup of CNI config
 mkdir -p $HOME/temp
