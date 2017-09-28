@@ -183,7 +183,6 @@ sudo sed -i "s/--cluster-dns=.* /--cluster-dns=$KUBE_DNS_SVC_IPV6 /" /etc/system
 sudo -i
 # Backup any existing CNI netork config files to home dir
 mv /etc/cni/net.d/* $HOME
-MY_POD_SUBNET=fd00:101
 cat <<EOT > 10-bridge-v6.conf
 {
   "cniVersion": "0.3.0",
@@ -197,8 +196,8 @@ cat <<EOT > 10-bridge-v6.conf
     "ranges": [
       [
         {
-          "subnet": "$MY_POD_SUBNET::/64",
-          "gateway": "$MY_POD_SUBNET::1"
+          "subnet": "fd00:101::/64",
+          "gateway": "fd00:101::1"
         }
       ]
     ]
@@ -214,7 +213,6 @@ exit
 sudo -i
 # Backup any existing CNI netork config files to home dir
 mv /etc/cni/net.d/* $HOME
-MY_POD_SUBNET=fd00:102
 cat <<EOT > 10-bridge-v6.conf
 {
   "cniVersion": "0.3.0",
@@ -228,8 +226,8 @@ cat <<EOT > 10-bridge-v6.conf
     "ranges": [
       [
         {
-          "subnet": "$MY_POD_SUBNET::/64",
-          "gateway": "$MY_POD_SUBNET::1"
+          "subnet": "fd00:102::/64",
+          "gateway": "fd00:102::1"
         }
       ]
     ]
