@@ -50,10 +50,10 @@ sysctl net.ipv6.conf.all.forwarding
 ```
  
 #### On master and minions, add static route for NAT64 subnet 64:ff9b::/64 via eth1 to the NAT64 server
-Add the following to /etc/sysconfig/network-scripts/route6-eth1, if not already present:
+Add the following to /etc/network/interfaces.d/[interface].cfg, if not already present:
 
 ```
-ip -6 route add 64:ff9b::/96 via fd00::64 dev eth1
+up ip -6 route add 64:ff9b::/96 via fd00::64 dev eth1
 ```
 
 

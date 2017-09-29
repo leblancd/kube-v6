@@ -87,7 +87,7 @@ Leave NAT64 translation disabled while configuring Jool:
 
 #### Set the pool4 range to use 10.0.2.15 7000-8000:
 ```
-jool -4 --add 10.86.7.71 7000-8000      < = = = NOTE: Don't use 5000-6000 on VirtualBox setup
+jool -4 --add 10.0.2.15 7000-8000      < = = = NOTE: Don't use 5000-6000 on VirtualBox setup
 ```
 
 #### Check pool4 and pool6:
