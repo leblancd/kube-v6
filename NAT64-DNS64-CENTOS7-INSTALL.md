@@ -138,14 +138,14 @@ Reference: https://www.jool.mx/en/dns64.html
 On NAT64/DNS64 server, install bind9:
 ```
 sudo -i
-apt-get install -y bind9
+yum install -y bind bind-utils
 ```
 
 ## Configuring bind9
 Edit named configuration for bind9:
 ```
-cd /etc/bind
-vi named.conf.options
+cd /etc/
+vi named.conf
 ```
 
 In the /etc/bind/named.conf.options file, add the following line to enable recursive requests (e.g. from the kube-dns server):
@@ -184,7 +184,7 @@ And add the following option for a DNS64 prefix. Note that the exclude statement
 ## Restart bind9 service:
 
 ```
-service bind9 restart
+systemctl restart named.service
 systemctl status bind9
 ```
 
