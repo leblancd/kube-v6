@@ -1,0 +1,8 @@
+#! /usr/bin/bash
+
+# Create a pod named 'test-curl-2' using the busyboxplus:curl image and
+# attach to the pod (for running curl command).
+kubectl run test-curl-2 --image=radial/busyboxplus:curl -i --tty --restart=Never
+
+# Delete the pod
+kubectl delete pod test-curl-2

@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Kubernetes IPv6 nginx</title> 
+<style>
+    body {
+        width: 35em;
+        margin: 0 auto;
+        font-family: Tahoma, Verdana, Arial, sans-serif;
+    }
+</style>
+</head>
+<body>
+<h1>Welcome to nginx on <span style="color:  #C70039">IPv6</span> Kubernetes!</h1>
+<p>Pod: HOSTNAME</p>
+</body>
+</html>

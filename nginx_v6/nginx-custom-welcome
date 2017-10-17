@@ -1,0 +1,31 @@
+#!/usr/bin/bash
+#
+# Run this script with sudo on the kubernetes master node.
+#
+# This script will find all nodes that are serving as Kubernetes
+# minions, SSH into those nodes, exec into an nginx container
+# running on each minion, and customize the default nginx welcome
+# message with an incrementing server number.
+#
+# After running this script, the default welcome nginx welcome
+# message will be changed from the anonymous:
+#     Welcome to nginx!
+# To:
+#     Welcome to nginx server <some-incrementing-number>
+# Prerequisites:
+# - Password-less SSH must be configured on the master node to minions.
+# - A container named nginx should be running on one or more minions.
+#
+
+NODE_NUM=1
+kubectl get nodes | grep -v master | while read i;
+do
+    NODE=$(echo $i | awk '/minion/{print $1}')
+    if [ -n "$NODE" ]; then
+        echo "Configuring custom nginx welcome message on $NODE"
+        CMD="sudo docker exec -i \$(sudo docker ps | awk '/nginx -g/{print \$1}') sed -i 's/Welcome to nginx.*!/Welcome to nginx server $NODE_NUM!/' /usr/share/nginx/html/index.html"
+        ssh $NODE $CMD </dev/null
+        ((NODE_NUM++))
+    fi
+done
+

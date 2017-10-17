@@ -352,7 +352,24 @@ kube-system   kube-scheduler-kube-master            1/1       Running   0       
 ```
 
 ## Additional checking of the cluster
-T.B.D.
+
+#### Test Connectivity with the Kubernetes API Server
+```
+[root@kube-master nginx_v6]# kubectl get svc
+NAME         TYPE        CLUSTER-IP     EXTERNAL-IP   PORT(S)   AGE
+kubernetes   ClusterIP   fd00:1234::1   <none>        443/TCP   10h
+[root@kube-master nginx_v6]# curl -g [fd00:1234::1]:443 | od -c -a
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100    14    0    14    0     0   1926      0 --:--:-- --:--:-- --:--:--  3500
+0000000 025 003 001  \0 002 002  \n
+        nak etx soh nul stx stx  nl
+0000007
+[root@kube-master nginx_v6]# 
+```
+
+#### Creating an IPv6-Enabled, nginx-Based Replicated Service
+To test IPv6-based services, follow the instructions in [nginx_v6/README.md](nginx_v6/README.md)
 
 ## Resetting and Re-Running kubeadm init/join
 If you ever need to restart and re-run kubeadm init/join, follow these steps.
