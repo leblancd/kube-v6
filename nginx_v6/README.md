@@ -86,7 +86,7 @@ If you curl the service repeatedly, you should see a response from one of the 4 
 
 ## Test Service Access From a Pod
 
-#### cd to nginx_v6 directory and start a pod-curl container:
+#### cd to nginx_v6 directory and start a pod that includes the curl utility:
 ```
 [root@kube-master kube-v6]# cd nginx_v6
 [root@kube-master nginx_v6]# ./pod-curl
@@ -159,4 +159,12 @@ Address 1: fd00:1234::3:b606
 <p>Pod: nginx-controller-gknzr</p>
 [ root@test-curl:/ ]$ 
 ```
+
+#### Exit the pod-curl pod
+```
+[ root@test-curl:/ ]$ exit
+pod "test-curl" deleted
+[root@kube-master nginx_v6]# 
+```
+
 
