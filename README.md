@@ -368,8 +368,11 @@ kubernetes   ClusterIP   fd00:1234::1   <none>        443/TCP   10h
 [root@kube-master nginx_v6]# 
 ```
 
-#### Creating an IPv6-Enabled, nginx-Based Replicated Service
-To test IPv6-based services, follow the instructions in [nginx_v6/README.md](nginx_v6/README.md)
+#### Manually Test Services Using an IPv6-Enabled, nginx-Based Replicated Service
+To manually test IPv6-based services, follow the instructions in [nginx_v6/README.md](nginx_v6/README.md)
+
+#### Running IPv6 e2e Test Suite to Confirm IPv6 Networking Conformance
+To run the IPv6 End-to-End test suite to verify that your IPv6 Kubernetes cluster meets IPv6 Networking conformance, follow the [kube-v6-test](https://github.com/leblancd/kube-v6-test) guide.
 
 ## Resetting and Re-Running kubeadm init/join
 If you ever need to restart and re-run kubeadm init/join, follow these steps.
