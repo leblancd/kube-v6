@@ -4,10 +4,7 @@ Instructions on how to instantiate a multi-node, IPv6-only Kubernetes cluster us
 # Overview
 So you'd like to take Kubernetes IPv6 for a test drive, or perhaps do some Kubernetes IPv6 development? The instructions below describe how to bring up a multi-node, IPv6-only Kubernetes cluster that uses the CNI bridge and host-local IPAM plugins, using kubeadm to stand up the cluster.
 
-There have been many recent changes that have been added or proposed to Kubernetes for supporting IPv6 are either not merged yet, or they were merged after the latest official release of Kubernetesi (1.8.0). In the meantime, we need a way of exercising these yet "in-flight" IPv6 changes on a Kubernetes cluster. This wiki offers you two ways to include these changes in a Kubernetes cluster instance:
-
- * Using "canned" (precompiled/prebuilt) release  binaries and container images for Kubernetes components (e.g. https://github.com/leblancd/kubernetes/releases/tag/v1.9.0-alpha.1.ipv6.1)
- * Compiling your own Kubernetes binaries and container images.
+There have been several changes that have been merged recently into Kubernetes that are required for IPv6 support, but they may not yet be included in any official released images of Kubernetes. For now, this github page provides a method for using "canned" (precompiled/prebuilt) IPv6-enabled binaries and hyperkube image that were built from a fork of Kubernetes (see https://github.com/leblancd/kubernetes/releases/tag/v1.9.0-beta.0.ipv6.2).
 
 For instructional purposes, the steps below assume the topology shown in the following diagram, but certainly various topologies can be supported (e.g. using baremetal nodes or different IPv6 addressing schemes) with slight variations in the steps:
 
@@ -249,12 +246,12 @@ fi
 # Running Pre-Built (Release) IPv6-enabled Binaries and Container Images
 There are some recent IPv6-related changes that have been proposed to Kubernetes that have either not been merged, or they were merged before the latest tagged release. One way of incorporating these changes while instantiating a Kubernetes IPv6 cluster is to use pre-built, IPv6-enabled images from a Kubernetes IPv6 release. In this way, you can avoid having to cherry-pick the necessary IPv6 changes, and then building Kubernetes binaries and container images.
 
-For an example Kubernetes IPv6 release, take a look at [Kubernetes IPv6 Version v1.9.0-alpha.1.ipv6.1](https://github.com/leblancd/kubernetes/releases/tag/v1.9.0-alpha.1.ipv6.1).
+For an example Kubernetes IPv6 release, take a look at [Kubernetes IPv6 Version v1.9.0-beta.0.ipv6.2](https://github.com/leblancd/kubernetes/releases/tag/v1.9.0-beta.0.ipv6.2).
 
 ## Download IPv6-enabled Kubernetes binaries (kubeadm, kubectl, kubelet)
 On all Kubernetes nodes, run the following to download IPv6-enabled Kubernetes binaries:
 ```
-RELEASE=v1.9.0-alpha.1.ipv6.1
+RELEASE=v1.9.0-beta.0.ipv6.2
 cd /bin
 for i in kubeadm kubectl kubelet; do
     sudo cp --backup=t $i{,.bak}
@@ -269,15 +266,12 @@ On the master node, create a kubeadm config file as follows:
 cat << EOT > kubeadm_v6.cfg
 apiVersion: kubeadm.k8s.io/v1alpha1
 kind: MasterConfiguration
+kubernetesVersion: 1.10.0
 api:
   advertiseAddress: fd00::100
-kubeProxy:
-  bindAddress: "::"
-etcd:
-  image: diverdane/etcd-amd64:3.0.17
 networking:
   serviceSubnet: fd00:1234::/110
-unifiedControlPlaneImage: diverdane/hyperkube-amd64:v1.9.0-alpha.1.ipv6.1
+unifiedControlPlaneImage: diverdane/hyperkube-amd64:v1.9.0-beta.0.ipv6.2
 tokenTTL: 0s
 nodeName: kube-master
 EOT
@@ -324,9 +318,9 @@ Run 'kubeadm get nodes' on the master. You should see something like the followi
 ```
 [root@kube-master ~]# kubectl get nodes
 NAME            STATUS    ROLES     AGE       VERSION
-kube-master     Ready     master    11h       v1.9.0-alpha.1.ipv6.1-dirty
-kube-minion-1   Ready     <none>    11h       v1.9.0-alpha.1.ipv6.1-dirty
-kube-minion-2   Ready     <none>    11h       v1.9.0-alpha.1.ipv6.1-dirty
+kube-master     Ready     master    11h       v1.10.0-alpha.0.724+160270800f0995-dirty
+kube-minion-1   Ready     <none>    11h       v1.10.0-alpha.0.724+160270800f0995-dirty
+kube-minion-2   Ready     <none>    11h       v1.10.0-alpha.0.724+160270800f0995-dirty
 [root@kube-master ~]# 
 ```
 Note: If for some reason you don't see the nodes showing up in the nodes list, try restarting the kubelet service on the effected node, e.g.:
@@ -399,7 +393,4 @@ kubeadm reset
 ```
 
 #### Re-run 'kubeadm init ...' and 'kubeadm join ...' as sudo
-
-# Building and Downloading Your own Custom IPv6 Kubernetes Binaries/Images
-T.B.D.
 
