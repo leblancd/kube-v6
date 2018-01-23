@@ -4,8 +4,6 @@ Instructions on how to instantiate a multi-node, IPv6-only Kubernetes cluster us
 # Overview
 So you'd like to take Kubernetes IPv6 for a test drive, or perhaps do some Kubernetes IPv6 development? The instructions below describe how to bring up a multi-node, IPv6-only Kubernetes cluster that uses the CNI bridge and host-local IPAM plugins, using kubeadm to stand up the cluster.
 
-There have been several changes that have been merged recently into Kubernetes that are required for IPv6 support, but they may not yet be included in any official released images of Kubernetes. For now, this github page provides a method for using "canned" (precompiled/prebuilt) IPv6-enabled binaries and hyperkube image that were built from a fork of Kubernetes (see https://github.com/leblancd/kubernetes/releases/tag/v1.9.0-beta.0.ipv6.2).
-
 For instructional purposes, the steps below assume the topology shown in the following diagram, but certainly various topologies can be supported (e.g. using baremetal nodes or different IPv6 addressing schemes) with slight variations in the steps:
 
 ![Screenshot](kubernetes_ipv6_topology.png)
@@ -20,7 +18,7 @@ can be instantiated using a couple of manual steps:
  * Add static routes on each node to other nodes' pod subnets using the target node's host address as a next hop.
 
 #### Why run in IPv6-only mode rather than running in dual-stack mode?
-The first phase of implementation for IPv6 on Kubernetes will target support for IPv6-only clusters. The main reason for this is that Kubernetes currently only supports/recognizes a single IP address per pod (i.e. no multiple-IP support). So even though the CNI bridge plugin supports dual-stack (as well as support for multiple IPv6 addresses on each pod interface) operation on the pods, Kubernetes will currently only be aware of one IP address per pod.
+The first phase of implementation for IPv6 on Kubernetes (introduced in Kubernetes Version 1.9) will target support for IPv6-only clusters. The main reason for this is that Kubernetes currently only supports/recognizes a single IP address per pod (i.e. no multiple-IP support). So even though the CNI bridge plugin supports dual-stack (as well as support for multiple IPv6 addresses on each pod interface) operation on the pods, Kubernetes will currently only be aware of one IP address per pod.
 
 #### What is the purpose of NAT64 and DNS64 in the IPv6 Kubernetes cluster topology diagram?
 We need to be able to test IPv6-only Kubernetes cluster configurations. However, there are many external services (e.g. DockerHub) that only work with IPv4. In order to interoperate between our IPv6-only cluster and these external IPv4 services, we configure a node outside of the cluster to host a NAT64 server and a DNS64 server. The NAT64 server operates in dual-stack mode, and it serves as a stateful translator between the internal IPv6-only network and the external IPv4 Internet. The DNS64 server synthesizes AAAA records for any IPv4-only host/server outside of the cluster, using a special prefix of 64:ff9b::. Any packets that are forwarded to the NAT64 server with this special prefix are subjected to stateful address translation to an IPv4 address/port.
@@ -31,7 +29,7 @@ You can use GUA, ULA, or a combination of both for addresses on your Kubernetes 
 # Preparing the Nodes
 
 ## Set up node IP addresses
-For the example topology show above, the eth2 addresses would be configured via IPv6 SLAAC, and the eth1 addresses would be statically configured as follows:
+For the example topology show above, the eth2 addresses would be configured via IPv6 SLAAC (this is optional, and requires a router external to the Kubernetes cluster to provide Router Advertisement messages), and the eth1 addresses would be statically configured with IPv6 Unique Local Addresses (ULAs) as follows:
 ```
        Node        IP Address
    -------------   ----------
@@ -121,7 +119,7 @@ sudo sysctl -p /etc/sysctl.conf
 exit
 ```
 
-## Install standard Kubernetes packages (as a baseline)
+## Install standard Kubernetes packages
 On the Kubernetes master and nodes, install docker, kubernetes, and kubernetes-cni.
 Reference: [Installing kubeadm](https://kubernetes.io/docs/setup/independent/install-kubeadm/)
 
@@ -153,16 +151,16 @@ The kubelet is now restarting every few seconds, as it waits in a crashloop for 
 ## Configure the kube-dns Kubernetes service address in kubelet startup config
 When the kubelet systemd service is started up, it needs to know what nameserver address that it will be configuring in the /etc/resolv.conf file of every pod that it starts up. Since kube-dns provides DNS service within the cluster, the nameserver address configured in pods needs to be the Kubernetes service address of kube-dns.
 
-By default, when kubeadm is installed, the kubelet service is configured for the default IPv4 service address of 10.96.0.10 via a --cluster-dns setting in the /etc/systemd/system/kubelet.service.d/10-kubeadm.conf file. But for a Kubernetes cluster running in IPv6-only mode, the kube-dns service address will be the :10 address in the Kubernetes service CIDR. For example, for the Kubernetes service CIDR shown in the example topoogy above, the kube-dns service address will be:
+By default, when kubeadm is installed, the kubelet service is configured for the default IPv4 service address of 10.96.0.10 via a --cluster-dns setting in the /etc/systemd/system/kubelet.service.d/10-kubeadm.conf file. But for a Kubernetes cluster running in IPv6-only mode, the kube-dns service address will be the :a address in the Kubernetes service CIDR. For example, for the Kubernetes service CIDR shown in the example topoogy above, the kube-dns service address will be:
 ```
-fd00:1234::10
+fd00:1234::a
 ```
 
 #### TODO: Modify the step below to use 10-extra-args.conf dropin file rather than 10-kubeadm.conf.
 
 To modify kubelet's kube-dns configuration, do the following on all nodes (and your master, if you plan on un-tainting it):
 ```
-KUBE_DNS_SVC_IPV6=fd00:1234::10
+KUBE_DNS_SVC_IPV6=fd00:1234::a
 sudo sed -i "s/--cluster-dns=.* /--cluster-dns=$KUBE_DNS_SVC_IPV6 /" /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
 ```
 
@@ -181,7 +179,7 @@ cat <<EOT > 10-bridge-v6.conf
   "type": "bridge",
   "bridge": "cbr0",
   "isDefaultGateway": true,
-  "ipMasq": false,
+  "ipMasq": true,
   "hairpinMode": true,
   "ipam": {
     "type": "host-local",
@@ -212,7 +210,7 @@ cat <<EOT > 10-bridge-v6.conf
   "type": "bridge",
   "bridge": "cbr0",
   "isDefaultGateway": true,
-  "ipMasq": false,
+  "ipMasq": true,
   "hairpinMode": true,
   "ipam": {
     "type": "host-local",
@@ -230,35 +228,7 @@ EOT
 exit
 ```
 
-## Download version 0.6.0 of CNI Plugins on every node
-Run the following on every node to download version 0.6.0 of the CNI plugins:
-```
-ARCHIVE=cni-plugins-amd64-v0.6.0.tgz
-mkdir -p /opt/cni/bin
-cd /opt/cni/bin
-for i in `ls`; do sudo cp --backup=t $i{,.bak}; done
-sudo curl -SLO https://github.com/containernetworking/plugins/releases/download/v0.6.0/$ARCHIVE
-if sudo tar -xzvf $ARCHIVE; then
-    sudo rm $ARCHIVE
-fi
-```
-
-# Running Pre-Built (Release) IPv6-enabled Binaries and Container Images
-There are some recent IPv6-related changes that have been proposed to Kubernetes that have either not been merged, or they were merged before the latest tagged release. One way of incorporating these changes while instantiating a Kubernetes IPv6 cluster is to use pre-built, IPv6-enabled images from a Kubernetes IPv6 release. In this way, you can avoid having to cherry-pick the necessary IPv6 changes, and then building Kubernetes binaries and container images.
-
-For an example Kubernetes IPv6 release, take a look at [Kubernetes IPv6 Version v1.9.0-beta.0.ipv6.2](https://github.com/leblancd/kubernetes/releases/tag/v1.9.0-beta.0.ipv6.2).
-
-## Download IPv6-enabled Kubernetes binaries (kubeadm, kubectl, kubelet)
-On all Kubernetes nodes, run the following to download IPv6-enabled Kubernetes binaries:
-```
-RELEASE=v1.9.0-beta.0.ipv6.2
-cd /bin
-for i in kubeadm kubectl kubelet; do
-    sudo cp --backup=t $i{,.bak}
-    sudo curl -SLO https://github.com/leblancd/kubernetes/releases/download/$RELEASE/$i
-    chmod 755 $i
-done
-```
+# Bringing up the Kubernetes Cluster with kubeadm
 
 ## Create IPv6-enabled kubeadm config file on master node
 On the master node, create a kubeadm config file as follows:
@@ -266,13 +236,10 @@ On the master node, create a kubeadm config file as follows:
 cat << EOT > kubeadm_v6.cfg
 apiVersion: kubeadm.k8s.io/v1alpha1
 kind: MasterConfiguration
-kubernetesVersion: 1.10.0
 api:
   advertiseAddress: fd00::100
 networking:
   serviceSubnet: fd00:1234::/110
-unifiedControlPlaneImage: diverdane/hyperkube-amd64:v1.9.0-beta.0.ipv6.2
-tokenTTL: 0s
 nodeName: kube-master
 EOT
 ```
@@ -318,9 +285,9 @@ Run 'kubeadm get nodes' on the master. You should see something like the followi
 ```
 [root@kube-master ~]# kubectl get nodes
 NAME            STATUS    ROLES     AGE       VERSION
-kube-master     Ready     master    11h       v1.10.0-alpha.0.724+160270800f0995-dirty
-kube-minion-1   Ready     <none>    11h       v1.10.0-alpha.0.724+160270800f0995-dirty
-kube-minion-2   Ready     <none>    11h       v1.10.0-alpha.0.724+160270800f0995-dirty
+kube-master     Ready     master    11h       v1.9.0
+kube-minion-1   Ready     <none>    11h       v1.9.0
+kube-minion-2   Ready     <none>    11h       v1.9.0
 [root@kube-master ~]# 
 ```
 Note: If for some reason you don't see the nodes showing up in the nodes list, try restarting the kubelet service on the effected node, e.g.:
