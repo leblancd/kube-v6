@@ -1,0 +1,31 @@
+#!/bin/bash
+set -euo pipefail
+export K8S_WORKERS=${K8S_WORKERS:-1}
+
+while true
+do
+read -r -p "Please provide the number of workers for the Kubernetes cluster (0-50) or enter [Q/q] to exit: " input
+
+if [ $input -eq $input 2>/dev/null ]
+then
+  if (( $input >= 0 && $input <= 50))
+  then
+    export K8S_WORKERS=$input
+    break
+  else
+    echo "Input out of range, please try again..."
+  fi
+elif [ $input == "q" ] || [ $input == "Q" ]
+then
+ echo "Exiting..."
+ exit 0
+else
+ echo "$input is not a valid input"
+fi
+done
+echo
+
+echo
+echo "Creating master node, nat64 and $K8S_WORKERS worker node(s)"
+echo 
+./vagrant-up

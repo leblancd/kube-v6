@@ -1,0 +1,13 @@
+#!/bin/bash
+
+set -euo pipefail
+
+rm ./config/* 2>/dev/null || true
+
+mkdir -p ./config/
+
+vagrant destroy -f
+vagrant destroy -f
+
+rm -rf ./.vagrant
+[ -f .vagrant-state ] && rm .vagrant-state

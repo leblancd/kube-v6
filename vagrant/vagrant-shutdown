@@ -1,0 +1,10 @@
+#!/bin/bash
+#
+# Author: Pierre Pfister <ppfister@cisco.com>
+#
+# Largely inspired from contiv-VPP vagrant file.
+#
+
+set -euo pipefail
+
+vagrant halt
