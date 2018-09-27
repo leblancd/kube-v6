@@ -20,6 +20,7 @@ nat64_vm_id=$K8S_NAT64_ID
 master_vm_id=$K8S_MASTER_ID
 worker_vm_id_first=$K8S_FIRST_WORKER_ID
 docker_version=$DOCKER_VERSION
+service_cidr=$K8S_SERVICE_CIDR
 
 vm_names=$(echo $VMS_CONF | awk 'BEGIN{ RS=","; FS=":"; ORS=" " } { print $1 }')
 
@@ -64,7 +65,22 @@ EOF
 if [ "$self_name" != "nat64" ]; then
 	get_vm_conf "nat64"
 	sudo tee --append /etc/network/interfaces.d/enp0s8 << EOF
+  # Route to ze interwebz
   post-up /sbin/ip -6 route add ${nat64_prefix}/96 via ${base_ip6}0::$vm_id dev enp0s8
+EOF
+fi
+
+if [ "$self_name" != "master" ]; then
+	get_vm_conf "master"
+	sudo tee --append /etc/network/interfaces.d/enp0s8 << EOF
+  # The k8s service CIDR going to master.
+  post-up /sbin/ip -6 route add $service_cidr:/110 via ${base_ip6}0::$vm_id dev enp0s8
+EOF
+else
+  get_vm_conf "nat64"
+	sudo tee --append /etc/network/interfaces.d/enp0s8 << EOF
+  # The k8s service CIDR going to nat64 (only for master).
+  post-up /sbin/ip -6 route add $service_cidr:/110 via ${base_ip6}0::$vm_id dev enp0s8
 EOF
 fi
 
