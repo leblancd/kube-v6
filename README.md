@@ -8,6 +8,12 @@ For instructional purposes, the steps below assume the topology shown in the fol
 
 ![Screenshot](kubernetes_ipv6_topology.png)
 
+# Quick Start Options
+If you would like to get a sense of how what IPv6-only support looks like on Kubernetes, here are a couple of quick-start options:
+
+ * Docker run an IPv6-only cluster in a "Kube-in-the-Box" container, using commands described [here](https://github.com/leblancd/kube-in-the-box).
+ * Use the automated Vagrant environment. <TBD>
+
 # FAQs
 
 #### Why Use the CNI Bridge Plugin? Isn't it intended for single-node clusters?
