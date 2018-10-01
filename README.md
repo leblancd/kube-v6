@@ -4,8 +4,6 @@ Instructions on how to instantiate a multi-node, IPv6-only Kubernetes cluster us
 # Overview
 So you'd like to take Kubernetes IPv6 for a test drive, or perhaps do some Kubernetes IPv6 development? The instructions below describe how to bring up a multi-node, IPv6-only Kubernetes cluster that uses the CNI bridge and host-local IPAM plugins, using kubeadm to stand up the cluster.
 
-If you are too lazy, you may want to have a look at the automated [vagrant](vagrant) environment.
-
 For instructional purposes, the steps below assume the topology shown in the following diagram, but certainly various topologies can be supported (e.g. using baremetal nodes or different IPv6 addressing schemes) with slight variations in the steps:
 
 ![Screenshot](kubernetes_ipv6_topology.png)
@@ -14,7 +12,7 @@ For instructional purposes, the steps below assume the topology shown in the fol
 If you would like to get a sense of how what IPv6-only support looks like on Kubernetes, here are a couple of quick-start options:
 
  * Docker run an IPv6-only cluster in a "Kube-in-the-Box" container, using commands described [here](https://github.com/leblancd/kube-in-the-box).
- * Use the automated Vagrant environment. <TBD>
+ * Use the automated Vagrant environment. You will need to [install Vagrant](https://www.vagrantup.com/downloads.html), and then run `./vagrant-start` from the [vagrant directory](vagrant).
 
 # FAQs
 
