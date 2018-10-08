@@ -32,17 +32,35 @@ sudo chown -R vagrant:vagrant /home/vagrant/Jool
 make -C /home/vagrant/Jool/usr
 sudo make install -C /home/vagrant/Jool/usr
 
-echo "Loading Jool"
-sudo modprobe jool pool6=$nat64_prefix/96 disabled
-
-ip4_address=$(ip -o addr show dev enp0s3 | sed 's,/, ,g' | awk '$3=="inet" { print $4 }')
-
 echo "Configuring Jool"
-sudo jool -4 --add $ip4_address 7000-8000
+sudo tee /etc/systemd/system/nat64.service << EOF
+[Unit]
+Description=Jool NAT64
+After=network.target
+
+[Service]
+ExecStart=/root/nat64-setup.sh
+
+[Install]
+WantedBy=default.target
+EOF
+
+sudo tee /root/nat64-setup.sh << EOF
+#!/bin/bash
+modprobe jool pool6=$nat64_prefix/96 disabled
+ip4_address=\$(ip -o addr show dev enp0s3 | sed 's,/, ,g' | awk '\$3=="inet" { print $4 }')
+
+jool -4 --add $ip4_address 7000-8000
 jool -4 -d
 jool -6 -d
-sudo jool --enable
-jool -d
+jool --enable
+#jool -d
+EOF
+
+sudo chmod a+x /root/nat64-setup.sh
+
+sudo systemctl start nat64.service
+sudo systemctl enable nat64.service
 
 echo "Configuring bind"
 cat | sudo tee /etc/bind/named.conf.options << EOF
