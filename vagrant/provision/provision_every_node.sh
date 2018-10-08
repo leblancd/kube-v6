@@ -50,6 +50,7 @@ EOF
 echo "Configuring IPv6 network in enp0s8"
 sudo tee /etc/network/interfaces.d/enp0s8 << EOF
 # Generated during provisioning in k86 provision_every_node
+auto enp0s8
 iface enp0s8 inet6 static
   address ${base_ip6}0::$self_id
   netmask 80

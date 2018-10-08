@@ -156,7 +156,6 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   # Configure VBox Master node
   config.vm.define vms["master"][:hostname] do |k86master|
     k86master.vm.hostname = vms["master"][:hostname]
-    #k86master.vm.synced_folder "../", "/home/vagrant/gopath/src/github.com/contiv/vpp"
 
     k86master.vm.network "private_network",  virtualbox__intnet: "k86", auto_config: false
 

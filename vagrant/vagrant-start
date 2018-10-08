@@ -2,6 +2,10 @@
 set -euo pipefail
 export K8S_WORKERS=${K8S_WORKERS:-1}
 
+if [ -f .vagrant-state ]; then
+  echo ".vagrant-state exists. Run ./vagrant-cleanup first" && exit 1
+fi
+
 while true
 do
 read -r -p "Please provide the number of workers for the Kubernetes cluster (0-50) or enter [Q/q] to exit: " input
@@ -27,5 +31,4 @@ echo
 
 echo
 echo "Creating master node, nat64 and $K8S_WORKERS worker node(s)"
-echo 
 ./vagrant-up
