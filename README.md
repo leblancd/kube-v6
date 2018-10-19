@@ -1,6 +1,8 @@
 # kube-v6
 Instructions on how to instantiate a multi-node, IPv6-only Kubernetes cluster using the CNI bridge plugin and Host-local IPAM plugin for developing or exploring IPv6 on Kubernetes.
 
+Also includes instructions on configuring a dual-stack ingress controller on an IPv6-only Kubernetes cluster.
+
 Table of Contents
 =================
 
@@ -43,6 +45,7 @@ Table of Contents
       * [Reset the nodes](#reset-the-nodes)
       * [Reset the master](#reset-the-master)
       * [Re-run 'kubeadm init ...' and 'kubeadm join ...' as sudo](#re-run-kubeadm-init--and-kubeadm-join--as-sudo)
+   * [Installing a Dual-Stack Ingress Controller on an IPv6-Only Kubernetes Cluster](#installing-a-dual-stack-ingress-controller-on-an-ipv6-only-kubernetes-cluster)
 
 # Overview
 So you'd like to take Kubernetes IPv6 for a test drive, or perhaps do some Kubernetes IPv6 development? The instructions below describe how to bring up a multi-node, IPv6-only Kubernetes cluster that uses the CNI bridge and host-local IPAM plugins, using kubeadm to stand up the cluster.
@@ -409,4 +412,7 @@ kubeadm reset
 ```
 
 ## Re-run 'kubeadm init ...' and 'kubeadm join ...' as sudo
+
+# Installing a Dual-Stack Ingress Controller on an IPv6-Only Kubernetes Cluster
+If an otherwise IPv6-only Kubernetes cluster is configured with dual-stack (IPv4 and IPv6) public addresses on worker nodes, then it is possible to install a dual-stack ingress controller on the cluster. In this way, dual-stack access from both IPv4 and IPv6 external clients can be provided for services that are hosted in an IPv6-only (internally speaking) Kubernetes cluster. The method for doing this is described in [dual-stack-ingress/README.md](dual-stack-ingress/README.md).
 

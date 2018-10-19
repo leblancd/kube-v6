@@ -1,0 +1,12 @@
+167c167
+< kind: Deployment
+---
+> kind: DaemonSet
+175d174
+<   replicas: 1
+189a189
+>       hostNetwork: true
+196c196
+<             - --publish-service=$(POD_NAMESPACE)/ingress-nginx
+---
+>             - --report-node-internal-ip-address

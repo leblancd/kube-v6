@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mysqlclient
+  labels:
+    name: mysqlclient
+spec:
+  containers:
+    - resources:
+        limits :
+          cpu: 1
+      image: mysql
+      name: mysqlclient
+      env:
+        - name: MYSQL_ROOT_PASSWORD
+          value: password
+      command: ["sh", "-c", "tail -f /dev/null"]

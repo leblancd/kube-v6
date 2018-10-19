@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    name: mysql
+  name: mysql
+spec:
+  externalIPs:
+      - fd00::101
+  ports:
+    - port: 3306
+  selector:
+    name: mysql

@@ -1,0 +1,22 @@
+#! /usr/bin/bash
+
+# This script creates and attachs to a pod using the mysql image
+# running as a mysql client (e.g. for running mysql client commands).
+#
+# NOTE: Modify the following password setting to match the root
+# password used by your mysql server.
+PASSWORD="password"
+POD_NAME="test-mysql"
+
+# Create and attach to a pod using the mysql image running as a
+# mysql client (e.g. for running mysql client commands).
+echo "Creating and attaching to a pod named $POD_NAME".
+echo "After the pod is created, you should be able to enter"
+echo "mysql commands, e.g.:"
+echo "         mysql -uroot -p -h<mysql-service-ip>"
+echo "(you'll be prompted for a password. Use '$PASSWORD')"
+kubectl run test-mysql --image=mysql -it --restart=Never --env="MYSQL_ROOT_PASSWORD=password" --command -- /bin/sh
+
+# Delete the pod
+kubectl delete pod test-mysql
+
