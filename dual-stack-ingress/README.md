@@ -24,11 +24,10 @@ The Kubernetes manifests that are used here are actually modified versions of th
 - https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/mandatory.yaml
 - https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/provider/baremetal/service-nodeport.yaml
 
-The changes that are required to the "mandatory.yaml" file to set up an ingress controller on the host network are as follows:
+The specific changes that are required to the "mandatory.yaml" file to set up an ingress controller on the host network can be seen in the [hostnetwork_ingress_patch.txt](hostnetwork_ingress_patch.txt) file. The changes can be summarized as follows:
 - Convert the manifest kind from Deployment to a DaemonSet, and delete replicas setting (so that one ingress controller runs on each worker node)
 - Add "hostNetwork: true" to the pod spec
 - Add --report-node-internal-ip-address to the ingress controller startup flags
-The specific changes to mandatory.yaml are shown in the "hostnetwork_ingress_patch.txt" file.
 
 ## Configure Your Worker Nodes with a Public IPv4 and Global IPv6 Address
 
