@@ -2,10 +2,12 @@
 
 These instructions show how to install a dual-stack ingress controller on a *mostly* IPv6-only Kubernetes cluster. The term *mostly* is used here in that this setup requires dual-stack addresses on the Kubernetes worker nodes, i.e. each node requires a public IPv4 address and a global IPv6 address in order for external IPv4 and IPv6 clients to be able to access Kubernetes services/applications that are hosted in cluster.
 
-## Background
-This ingress controller is based upon the [Kubernetes NGINX Ingress Controller](https://github.com/kubernetes/ingress-nginx#nginx-ingress-controller).
+Many thanks to Antonio Ojea (@aojea) for determining the methodology used here.
 
-As described in the Kubernetes NGINX ingress controller ["Bare Metal Considerations" guide], there are several configuration options for running the NGINX ingress controller on bare metal:
+## Background
+This ingress controller configuration is based upon the [Kubernetes NGINX Ingress Controller](https://github.com/kubernetes/ingress-nginx#nginx-ingress-controller). Baseline installation instructions are provided in the [NGINX Ingress Controller Installation Guide](https://kubernetes.github.io/ingress-nginx/deploy/), with details concerning bare metal installations provided in the ["Bare Metal Considerations"](https://kubernetes.github.io/ingress-nginx/deploy/baremetal/) guide.
+
+As described in the ["Bare Metal Considerations"](https://kubernetes.github.io/ingress-nginx/deploy/baremetal/) guide, there are several configuration options for running the NGINX ingress controller on bare metal:
 - [Using MetalLB software](https://kubernetes.github.io/ingress-nginx/deploy/baremetal/#a-pure-software-solution-metallb)
 - [Over a nodePort service](https://kubernetes.github.io/ingress-nginx/deploy/baremetal/#over-a-nodeport-service) 
 - [Via a host network](https://kubernetes.github.io/ingress-nginx/deploy/baremetal/#via-the-host-network)
@@ -29,7 +31,10 @@ The changes that are required to the "mandatory.yaml" file to set up an ingress 
 The specific changes to mandatory.yaml are shown in the "hostnetwork_ingress_patch.txt" file.
 
 ## Configure Your Worker Nodes with a Public IPv4 and Global IPv6 Address
-(Details left to the reader.)
+
+NOTE: When configuring nodes with dual-stack addresses on an otherwise IPv6-only Kubernetes cluster, care should be taken to configure the /etc/hosts file on each master/worker node to include only IPv6 addresses for each node. An example /etc/hosts file can be seen in the section ["Configure /etc/hosts on each node with the new addresses"](https://github.com/leblancd/kube-v6#configure-etchosts-on-each-node-with-the-new-addresses). Failure to configure the /etc/hosts file in this way will result in Kubernetes system pods (API server, controller manager, etc.) getting assigned IPv4 addresses, so that their services are not reachable from the other pods in the cluster with IPv6 addresses.
+
+The configuration of IPv4 and IPv6 addresses on worker nodes is dependent upon the operating system used on the nodes, so details are left to the reader.
 
 ## Downloading the YAML Files
 To download the manifests for a dual-stack, host-network based NGINX ingress controller, clone this repo:
@@ -60,9 +65,10 @@ nginx-service   NodePort   fd00:1234::3:f52d   <none>        8080:30302/TCP   1d
 [root@kube-master ~]# 
 ```
 
-## Create an NGINX Service to Test the Ingress Controller
-(Note: This is a NGINX deployment that is separate from the NGINX ingress controller.)
-In the directory where you cloned this repository, run the kubectl create command on the nginx_v6 directory:
+## Create an NGINX Service to Test the NGINX Ingress Controller
+Note: This is an NGINX service deployment that is separate from (not to be confused with) the NGINX ingress controller. It will be used to create a backend service with which to test the ingress controller.
+
+In the directory where you cloned the kube-v6 repository in the ["Downloading the YAML Files" step](#downloading-the-yaml-files), run the kubectl create command on the nginx_v6 directory:
 ```
     kubectl create -f nginx_v6/
 ```
@@ -78,7 +84,7 @@ nginx-controller-xn29r   1/1       Running   0          1d
 [root@kube-master ~]# 
 ```
 
-## Check NGINX Service
+## Check the NGINX (Backend) Service
 ```
 [root@kube-master ~]# kubectl get svc nginx-service
 NAME            TYPE       CLUSTER-IP          EXTERNAL-IP   PORT(S)          AGE

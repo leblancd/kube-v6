@@ -15,7 +15,7 @@ Table of Contents
       * [Should I use global (GUA) or private (ULA) IPv6 addresses on the Kubernetes nodes?](#should-i-use-global-gua-or-private-ula-ipv6-addresses-on-the-kubernetes-nodes)
    * [Preparing the Nodes](#preparing-the-nodes)
       * [Set up node IP addresses](#set-up-node-ip-addresses)
-      * [Configure /etc/hosts on each node with the new addresses (for convenience)](#configure-etchosts-on-each-node-with-the-new-addresses-for-convenience)
+      * [Configure /etc/hosts on each node with the new addresses](#configure-etchosts-on-each-node-with-the-new-addresses)
       * [Add static routes between nodes, pods, and Kubernetes services](#add-static-routes-between-nodes-pods-and-kubernetes-services)
          * [Static Routes on NAT64/DNS64 Server](#static-routes-on-nat64dns64-server)
          * [Static Routes on Kube Master](#static-routes-on-kube-master)
@@ -57,7 +57,7 @@ For instructional purposes, the steps below assume the topology shown in the fol
 # Quick Start Options
 If you would like to get a sense of how what IPv6-only support looks like on Kubernetes, here are a couple of quick-start options:
 
- * Docker run an IPv6-only cluster in a "Kube-in-the-Box" container, using commands described [here](https://github.com/leblancd/kube-in-the-box).
+ * Docker run an IPv6-only cluster in a ["Kube-in-the-Box"](https://github.com/leblancd/kube-in-the-box) container.
  * Use the automated Vagrant environment. <TBD>
 
 # FAQs
@@ -91,8 +91,10 @@ For the example topology show above, the eth2 addresses would be configured via 
    Kube Node 1     fd00::102
 ```
 
-## Configure /etc/hosts on each node with the new addresses (for convenience)
-Here's an example /etc/hosts file:
+## Configure /etc/hosts on each node with the new addresses
+NOTE: When configuring nodes with dual-stack addresses on an otherwise IPv6-only Kubernetes cluster, care should be taken to configure the /etc/hosts file on each master/worker node to include only IPv6 addresses for each node. An example /etc/hosts file is shown below. Failure to configure the /etc/hosts file in this way will result in Kubernetes system pods (API server, controller manager, etc.) getting assigned IPv4 addresses, so that their services are not reachable from the other pods in the cluster with IPv6 addresses.
+
+Example /etc/hosts file:
 ```
 127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
 ::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
