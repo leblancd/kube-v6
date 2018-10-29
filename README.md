@@ -57,8 +57,9 @@ For instructional purposes, the steps below assume the topology shown in the fol
 # Quick Start Options
 If you would like to get a sense of how what IPv6-only support looks like on Kubernetes, here are a couple of quick-start options:
 
- * Docker run an IPv6-only cluster in a ["Kube-in-the-Box"](https://github.com/leblancd/kube-in-the-box) container.
- * Use the automated Vagrant environment. <TBD>
+ * Docker run an IPv6-only cluster in a "Kube-in-the-Box" container, using commands described [here](https://github.com/leblancd/kube-in-the-box).
+ * Use the automated Vagrant environment. You will need to [install Vagrant](https://www.vagrantup.com/downloads.html), and then run `./vagrant-start` from the [vagrant directory](vagrant).
+
 
 # FAQs
 

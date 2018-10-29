@@ -1,0 +1,211 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+#
+# Author: Pierre Pfister <ppfister@cisco.com>
+#
+# Largely inspired from contiv-VPP vagrant file.
+#
+
+require 'fileutils'
+
+env = { }
+ENV_VARIABLES = [ 'HTTP_PROXY', 'HTTPS_PROXY', 'K8S_NODE_OS', 'K8S_IP6_PREFIX', 'K8S_NAT64_PREFIX', 
+'K8S_WORKERS', 'KUBERNETES_VERSION', 'VAGRANT_DEFAULT_PROVIDER',
+'K8S_NAT64_ID', 'K8S_MASTER_ID', 'K8S_FIRST_WORKER_ID', 'K8S_SERVICE_CIDR',
+'DOCKER_VERSION' ]
+STATEFILE = ".vagrant-state"
+
+ENV.each do |x,y|
+  if ENV_VARIABLES.include? x
+    env[x] = y.strip
+  end
+end
+
+if File.exist?(STATEFILE)
+  File.read(STATEFILE).lines.map { |x| x.split("=", 2) }.each { |x,y| if ENV_VARIABLES.include? x ; env[x] = y.strip end }
+end
+
+
+module VagrantPlugins
+  module EnvState
+    class Plugin < Vagrant.plugin('2')
+    name 'EnvState'
+
+    def self.up_hook(arg)
+        
+    end
+
+    def self.destroy_hook(arg)
+        if File.exist?(STATEFILE)
+            File.unlink(STATEFILE)
+        end
+    end
+
+    action_hook(:EnvState, :machine_action_up) do |hook|
+        hook.prepend(method(:up_hook))
+    end
+
+    action_hook(:EnvState, :machine_action_destroy) do |hook|
+        hook.prepend(method(:destroy_hook))
+    end
+    end
+  end
+end
+
+env['HTTP_PROXY'] = env['HTTP_PROXY'] || env['http_proxy'] || ''
+env['HTTPS_PROXY'] = env['HTTPS_PROXY'] || env['https_proxy'] || ''
+env['K8S_NODE_OS'] = env['K8S_NODE_OS'] || 'ubuntu'
+env['K8S_IP6_PREFIX'] = env['K8S_IP6_PREFIX'] || 'fd00:f00d:0:0:'
+env['K8S_NAT64_PREFIX'] = env['K8S_NAT64_PREFIX'] || '64:ff9b::'
+env['K8S_WORKERS'] = env['K8S_WORKERS'] || "1"
+env['KUBERNETES_VERSION'] = env['KUBERNETES_VERSION'] || "1.10.5"
+env['VAGRANT_DEFAULT_PROVIDER'] = env['VAGRANT_DEFAULT_PROVIDER'] || ""
+env['K8S_NAT64_ID'] = env['K8S_NAT64_ID'] || "64"
+env['K8S_MASTER_ID'] = env['K8S_MASTER_ID'] || "100"
+env['K8S_FIRST_WORKER_ID'] = env['K8S_FIRST_WORKER_ID'] || "101"
+env['K8S_SERVICE_CIDR'] = env['K8S_SERVICE_CIDR'] || "fd00:f00d:0:0:ffff:"
+env['DOCKER_VERSION'] = env['DOCKER_VERSION'] || "17.03.3~ce-0~ubuntu-xenial"
+
+unless File.exist?(STATEFILE)
+  f = File.open(STATEFILE, "w")
+  env.each do |x,y|
+    f.puts "%s=%s" % [x,y]
+  end
+  f.close
+end
+
+# SET ENV
+http_proxy = env['HTTP_PROXY']
+https_proxy = env['HTTPS_PROXY']
+node_os = env['K8S_NODE_OS']
+base_ip6 = env['K8S_IP6_PREFIX']
+nat64_prefix = env['K8S_NAT64_PREFIX'] 
+num_workers = env['K8S_WORKERS'].to_i
+provider = env['VAGRANT_DEFAULT_PROVIDER']
+k8s_version = env['KUBERNETES_VERSION']
+nat64_vm_id = env['K8S_NAT64_ID'].to_i
+master_vm_id = env['K8S_MASTER_ID'].to_i
+worker_vm_id_first = env['K8S_FIRST_WORKER_ID'].to_i
+
+vms = {}
+vms["nat64"] = { hostname: "k86-nat64", id: nat64_vm_id }
+vms["master"] = { hostname: "k86-master", id: master_vm_id }
+num_workers.times do |n|
+  vms["w#{n}"] = { hostname: "k86-worker#{n+1}", id: worker_vm_id_first + n }
+end
+
+vms_conf=""
+vms.each do |key, o|
+  vms_conf=vms_conf + "," + key + ":" + o[:hostname] + ":" + "#{o[:id]}"
+end
+
+env['VMS_CONF'] = vms_conf
+
+VAGRANTFILE_API_VERSION = "2"
+Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
+  config.vm.box_check_update = false
+  if Vagrant.has_plugin?("vagrant-vbguest")
+      config.vbguest.auto_update = false
+  end
+  
+  if node_os == "ubuntu" then
+      config.vm.box = "puppetlabs/ubuntu-16.04-64-nocm"
+      config.vm.box_version = "1.0.0"
+  else
+      # Nothing for now, later add more OS
+  end
+  
+  if Vagrant.has_plugin?("vagrant-cachier")
+    config.cache.scope = :box
+    config.cache.enable :apt
+  end
+  config.vm.provider 'virtualbox' do |v|
+    v.linked_clone = true if Vagrant::VERSION >= "1.8"
+    v.customize ['modifyvm', :id, '--paravirtprovider', 'kvm']
+  end
+  
+  #Configure NAT64
+  config.vm.define vms["nat64"][:hostname] do |nat64|
+    nat64.vm.hostname = vms["nat64"][:hostname]
+    
+    # Interface for K8s Cluster
+    nat64.vm.network "private_network", virtualbox__intnet: "k86", auto_config: false
+    
+    nat64.vm.provider "virtualbox" do |v|
+      v.customize ["modifyvm", :id, "--ioapic", "on"]
+      v.memory = 256
+      v.cpus = 1
+    end
+    
+    nat64.vm.provision "shell" do |s|
+      s.path = "provision/provision_every_node.sh"
+      s.args = ["nat64"]
+      s.env = env
+      s.privileged = false
+    end
+    
+    nat64.vm.provision "shell" do |s|
+      s.path = "provision/provision_nat64.sh"
+      s.args = ["nat64"]
+      s.env = env
+      s.privileged = false
+    end
+  end
+  
+  # Configure VBox Master node
+  config.vm.define vms["master"][:hostname] do |k86master|
+    k86master.vm.hostname = vms["master"][:hostname]
+
+    k86master.vm.network "private_network",  virtualbox__intnet: "k86", auto_config: false
+
+    k86master.vm.provider "virtualbox" do |v|
+      v.customize ["modifyvm", :id, "--ioapic", "on"]
+      #v.customize ["modifyvm", :id, "--vram", "128"]
+      v.memory = 4096
+      v.cpus = 4
+    end
+    
+    k86master.vm.provision "shell" do |s|
+      s.path = "provision/provision_every_node.sh"
+      s.args = ["master"]
+      s.env = env
+      s.privileged = false
+    end
+    k86master.vm.provision "shell" do |s|
+      s.path = "provision/provision_master.sh"
+      s.args = ["master"]
+      s.env = env
+      s.privileged = false
+    end
+  end
+  
+  # Configure VBox Worker node(s)
+  num_workers.times do |n|
+    config.vm.define vms["w#{n}"][:hostname] do |node|
+      node.vm.hostname = vms["w#{n}"][:hostname]
+      
+      # Interface for K8s Cluster
+      node.vm.network :private_network, virtualbox__intnet: "k86", auto_config: false
+
+      node.vm.provider "virtualbox" do |v|
+        v.customize ["modifyvm", :id, "--ioapic", "on"]
+        v.memory = 4096
+        v.cpus = 4
+      end
+      
+      node.vm.provision "shell" do |s|
+        s.path = "provision/provision_every_node.sh"
+        s.args = ["w#{n}"]
+        s.env = env
+        s.privileged = false
+      end
+      node.vm.provision "shell" do |s|
+        s.path = "provision/provision_worker.sh"
+        s.args = ["w#{n}"]
+        s.env = env
+        s.privileged = false
+      end
+    end
+  end
+end
