@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
         - name: nginx
-          image: diverdane/nginxkubev6:2.5.0
+          image: diverdane/nginxdualstack:1.0.0
           ports:
             - containerPort: 80
 

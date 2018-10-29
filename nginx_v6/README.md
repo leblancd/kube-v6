@@ -2,6 +2,14 @@
 
 These instructions show how you can manually test an IPv6-only Kubernetes cluster by instantiating an IPv6-enabled, Nginx-based replicated service on an IPv6-only Kubernetes cluster, using the associated YAML files in this repo.
 
+## Dockerfile for a Dual-Stack NGINX Server
+The standard nginx container image that is available on Dockerhub is configured to listen on port 80 for IPv4 addresses only. For testing NGINX servers in an IPv6-only or dual-stack cluster, the NGINX configuration needs to be modified so that the server is listening for both IPv4 and IPv6 addresses.
+
+The [Dockerfile](#Dockerfile) included here can be used to create an NGINX docker image that listens on both IPv4 and IPv6 addresses. The following dual-stack NGINX docker image has been built using this [Dockerfile](#Dockerfile):
+```
+diverdane/nginxdualstack:1.0.0
+```
+
 ## Downloading the YAML Files
 To download the IPv6-enabled, Nginx-based service YAML files, clone this repo:
 ```

@@ -1,7 +1,7 @@
 FROM nginx
 
-# Enable listening for IPv6
-RUN sed -i 's/listen       80;/listen       [::]:80;/' /etc/nginx/conf.d/default.conf
+# Enable listening for both IPv4 and IPv6
+RUN sed -i '/listen       80;/a \    listen       [::]:80 ipv6only=on;' /etc/nginx/conf.d/default.conf
 
 # Modify welcome message
 ADD custom-v6-welcome.txt /usr/share/nginx/html/index.html
