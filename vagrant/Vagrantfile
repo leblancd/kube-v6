@@ -15,6 +15,7 @@ ENV_VARIABLES = [ 'HTTP_PROXY', 'HTTPS_PROXY', 'K8S_NODE_OS', 'K8S_IP6_PREFIX', 
 'K8S_NAT64_ID', 'K8S_MASTER_ID', 'K8S_FIRST_WORKER_ID', 'K8S_SERVICE_CIDR',
 'DOCKER_VERSION' ]
 STATEFILE = ".vagrant-state"
+ENVFILE = ".vagrant-env"
 
 ENV.each do |x,y|
   if ENV_VARIABLES.include? x
@@ -24,6 +25,10 @@ end
 
 if File.exist?(STATEFILE)
   File.read(STATEFILE).lines.map { |x| x.split("=", 2) }.each { |x,y| if ENV_VARIABLES.include? x ; env[x] = y.strip end }
+end
+
+if File.exist?(ENVFILE)
+  File.read(ENVFILE).lines.map { |x| x.split("=", 2) }.each { |x,y| if ENV_VARIABLES.include? x ; env[x] = y.strip end }
 end
 
 

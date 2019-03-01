@@ -13,7 +13,7 @@ nat64_prefix=$K8S_NAT64_PREFIX
 echo "Installing required packages"
 sudo apt-get install -y build-essential linux-headers-$(uname -r) dkms \
 	gcc make pkg-config libnl-genl-3-dev autoconf \
-		bind9
+		bind9 iptables-dev
 
 if [ ! -d "/home/vagrant/Jool" ]; then
 	echo "Downloading Jool"
@@ -28,9 +28,9 @@ fi
 
 echo "Compiling and installing Jool's user binaries"
 sudo chown -R vagrant:vagrant /home/vagrant/Jool
-( cd /home/vagrant/Jool/usr && ./autogen.sh && ./configure )
-make -C /home/vagrant/Jool/usr
-sudo make install -C /home/vagrant/Jool/usr
+( cd /home/vagrant/Jool && ./autogen.sh && ./configure )
+make -C /home/vagrant/Jool
+sudo make install -C /home/vagrant/Jool
 
 echo "Configuring Jool"
 sudo tee /etc/systemd/system/nat64.service << EOF
