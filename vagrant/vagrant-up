@@ -12,4 +12,6 @@ if [ -f .vagrant-state ]; then
   . .vagrant-state
 fi
 
+echo "K8S_WORKERS=${K8S_WORKERS}" > .vagrant-env
+
 vagrant up

@@ -16,3 +16,4 @@ rm -rf ./.vagrant
 rm -rf ./vagrant-shared/
 
 [ -f .vagrant-state ] && rm .vagrant-state
+[ -f .vagrant-env ] && rm .vagrant-env
