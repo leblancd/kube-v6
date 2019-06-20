@@ -13,7 +13,7 @@ nat64_prefix=$K8S_NAT64_PREFIX
 echo "Installing required packages"
 sudo apt-get install -y build-essential linux-headers-$(uname -r) dkms \
 	gcc make pkg-config libnl-genl-3-dev autoconf \
-		bind9
+		bind9 iptables-dev
 
 if [ ! -d "/home/vagrant/Jool" ]; then
 	echo "Downloading Jool"
