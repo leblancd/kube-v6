@@ -28,9 +28,9 @@ fi
 
 echo "Compiling and installing Jool's user binaries"
 sudo chown -R vagrant:vagrant /home/vagrant/Jool
-( cd /home/vagrant/Jool/usr && ./autogen.sh && ./configure )
-make -C /home/vagrant/Jool/usr
-sudo make install -C /home/vagrant/Jool/usr
+( cd /home/vagrant/Jool && ./autogen.sh && ./configure )
+make -C /home/vagrant/Jool
+sudo make install -C /home/vagrant/Jool
 
 echo "Configuring Jool"
 sudo tee /etc/systemd/system/nat64.service << EOF
