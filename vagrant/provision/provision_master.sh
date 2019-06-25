@@ -39,8 +39,9 @@ echo "export KUBEADM_TOKEN=$(kubeadm token generate)" >> /vagrant/config/init
 if [ ! -f "/vagrant/config/kubadm-init-done" ]; then
   echo "Initiate kubeadm"
   sudo kubeadm init --apiserver-advertise-address=${base_ip6}0::$self_id \
-    --service-cidr=$k8s_service_cidr:/110 --node-name=k86-master --token=$KUBEADM_TOKEN | tee /vagrant/config/cert
-  touch "/vagrant/config/kubadm-init-done"
+    --service-cidr=$k8s_service_cidr:/110 --node-name=k86-master --token=$KUBEADM_TOKEN
+  sudo kubeadm token create --print-join-command > /vagrant/config/join.sh
+  sudo chmod a+x /vagrant/config/join.sh
 fi
 
 echo "kubectl config for user $(id -u)"
